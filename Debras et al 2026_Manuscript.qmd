@@ -1,0 +1,1292 @@
+---
+title: "Us against Them: Oxytocin Response to Competition in a Small-Scale Human Society"
+
+bibliography: references.bib
+csl: vancouver-superscript.csl # superscript in the text
+
+
+format:
+  docx:
+    reference-doc: WordTemplate.docx # this file as to be in the same folder as the .qmd file
+    toc: true
+    number-sections: true
+    df-print: default
+
+lang: en
+downloads: [docx]
+---
+
+```{r - Libraries, echo=FALSE,include=FALSE, message=FALSE, warning=FALSE, results="hide"}
+library(tibble)
+library(knitr)
+library(kableExtra)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+library(knitr)
+library(webshot)
+library(htmltools)
+library(brms)
+library(patchwork)
+library(scales)  
+library(cowplot)
+library(tidybayes)
+```
+
+```{r - Data Football,echo=FALSE,include=FALSE, message=FALSE, warning=FALSE, results="hide"}
+
+PathToRProject <- "/Volumes/Data-1/Institute/Human_Ecology/cdebra/Work/OTProject.Chapter2/"
+
+Path.Football <- file.path(PathToRProject, 
+                           "OTProject.Football.Models", 
+                           "OTProject.Football.Models.Data", 
+                           "Data.Models.Football.csv")
+
+Football.Data <- read.csv(Path.Football)
+Football.Data <- Football.Data %>%
+  filter(!PID %in% c("MXRU", "PA89"))
+
+```
+
+# **Abstract**
+
+```{r - Descriptive Statistics Football, echo=FALSE,include=FALSE, message=FALSE, warning=FALSE, results="hide"}
+
+#NumberSamples (only for Football Samples)
+Football.Subset <- Football.Data %>%
+  filter(SampleType %in% c("Post-Football", "Pre-Football"))
+
+NumberSamples <- nrow(Football.Subset)
+
+#NumberPreSamples 
+NumberPreSamples <- Football.Subset %>%
+  filter(SampleType == "Pre-Football") %>%
+  summarise(NbUniquePreSamples = n_distinct(SampleNumber)) %>%
+  pull(NbUniquePreSamples)
+
+#NumberPostSamples 
+NumberPostSamples <- Football.Subset %>%
+  filter(SampleType == "Post-Football") %>%
+  summarise(NbUniquePostSamples = n_distinct(SampleNumber)) %>%
+  pull(NbUniquePostSamples)
+
+
+#NumberTeamMen 
+NumberTeamMen <- Football.Subset %>%
+  filter(Sex == "M") %>%        
+  summarise(NbUniqueTeams = n_distinct(TeamName)) %>%  
+  pull(NbUniqueTeams) 
+
+
+#NumberTeamWomen 
+NumberTeamWomen <- Football.Subset %>%
+  filter(Sex == "F") %>%        
+  summarise(NbUniqueTeams = n_distinct(TeamName)) %>%  
+  pull(NbUniqueTeams) 
+
+#NumberPlayerMen 
+NumberPlayerMen <- Football.Data %>%
+  filter(Sex == "M") %>%  
+  summarise(Nb_UniqueMen_PID = n_distinct(PID)) %>% 
+  pull(Nb_UniqueMen_PID)  
+
+#NumberPlayerWomen 
+NumberPlayerWomen <- Football.Data %>%
+  filter(Sex == "F") %>%  
+  summarise(Nb_UniqueWomen_PID = n_distinct(PID)) %>%  
+  pull(Nb_UniqueWomen_PID)  
+
+NumberPlayerAll <- NumberPlayerMen + NumberPlayerWomen
+
+
+AgeStatsAll <- Football.Subset %>%
+  distinct(PID, .keep_all = TRUE) %>%  # Keeping distinct PID
+  summarise(
+    MeanAge = round(mean(AgeSampleTime, na.rm = TRUE),1),  # MeanAgeMen 
+    SDAge = round(sd(AgeSampleTime, na.rm = TRUE),1)  # SDAgeMen
+  )
+
+
+#MeanAgeMen and SDAgeMen
+AgeStatsMen <- Football.Subset %>%
+  filter(Sex == "M") %>%  # Keeping only men
+  distinct(PID, .keep_all = TRUE) %>%  # Keeping distinct PID
+  summarise(
+    MeanAgeMen = round(mean(AgeSampleTime, na.rm = TRUE),1),  # MeanAgeMen 
+    SDAgeMen = round(sd(AgeSampleTime, na.rm = TRUE),1)  # SDAgeMen
+  )
+
+MeanAgeMen <- AgeStatsMen$MeanAgeMen
+SDAgeMen <- AgeStatsMen$SDAgeMen
+
+#Ages 
+Age_Min <- Football.Data %>%
+  summarise(Age_Min = floor(min(AgeSampleTime, na.rm = TRUE)))
+
+
+Age_Max <- Football.Data %>%
+  summarise(Age_Max = floor(max(AgeSampleTime, na.rm = TRUE)))
+
+#MeanAgeWomen
+
+AgeStatsWomen <- Football.Subset %>%
+  filter(Sex == "F") %>%  # Keeping only men
+  distinct(PID, .keep_all = TRUE) %>%  # Keeping distinct PID
+  summarise(
+    MeanAgeWomen = round(mean(AgeSampleTime, na.rm = TRUE),1),  # MeanAgeWomen 
+    SDAgeWomen = round(sd(AgeSampleTime, na.rm = TRUE),1)  # SDAgeWomen
+  )
+
+MeanAgeWomen <- AgeStatsWomen$MeanAgeWomen
+SDAgeWomen <- AgeStatsWomen$SDAgeWomen
+
+
+#AssayBatchLevels 
+Football.Data$RIA <- as.factor(paste(Football.Data$FieldWork, Football.Data$RIA, sep = "."))
+AssayBatchLevels <- length(levels(Football.Data$RIA))
+
+
+# Physical Activity 
+
+DataPhysicalActivity <- Football.Subset %>%
+  filter(!is.na(StepsPerMinute)) %>%
+  distinct(PID) %>%
+  summarise(n_unique_PID = n())
+
+```
+
+Cooperation can be an effective way to compete. The neurohormone oxytocin (OT) may modulate this by enhancing both cooperation and competition. However, studies of endogenous OT reactivity during real-world competition are scarce. Here, we tested the hypothesis that OT modulates inter-group competition in a human subsistence society, the Tsimane’ of Bolivia, by measuring urinary OT in football players before and after matches. Matches varied in group salience, involving intra-community, inter-community, and interethnic opponents. Urinary OT was quantified using radioimmunoassays. We observed an increase in urinary OT levels following competition among men, but not among women. OT responses were strongest during both intra-community and interethnic matches. This pattern suggests sensitivity to familiar rivalries, consistent with the “nasty neighbour effect”, as well as heightened responses to out-groups. Our results support the hypothesis that OT mediates group-level competition in humans and reveal that OT reactivity varies by group salience. Moreover, our results showed a sex-specific response, with OT increases in men but not in women.
+
+------------------------------------------------------------------------
+
+# **Introduction**
+
+Social organisms display some of the most striking forms of cooperation in the animal kingdom, while simultaneously adopting resolutely anti-social behaviour, especially when confronted with rival groups. Many cooperative breeders such as meerkats (*Suricata suricatta*), for instance, maintain high levels of cooperation within family groups, while frequently engaging in intense inter-group conflict [@dyble2019]. Similarly, chimpanzees (*Pan troglodytes*) cooperate within their communities in collective hunting and meat sharing [@boesch1994a; @mitani2001; @wittig2014], yet they also regularly engage in border patrols and lethal inter-group attacks [@boesch2008a; @mitani2010; @samuni2017]. Humans are also a prime example of this duality: large-scale cooperation undergirds food production, technological innovation, and institutions, while organised warfare remains an indelible feature that has shadowed humankind across recorded history [@axelrod1981; @tooby2025].
+
+Rather than occupying opposite ends of a behavioural spectrum, cooperation and competition appear to be two facets of the same adaptive strategy, sometimes described as parochial cooperation, i.e. the tendency to combine costly in-group cooperation with antagonism toward outsiders [@bernhard2006; @pisor2024]. Theoretical work suggests that neither in-group cooperation nor out-group aggression is likely to persist in isolation over evolutionary time. However, both traits can become stable when they co-evolve, mutually reinforcing each other's adaptive value [@choi2007]. In this view, parochial cooperation is a composite strategy through which individuals increase group-level success and, in turn, individual fitness, especially in contexts where inter-group competition makes cohesive and cooperative groups more likely to succeed.
+
+Building on this conceptual foundation, the practical success of parochial cooperation appears to depend on a capacity for rapid, group-wide adjustments in behaviour, emotion and physiology whenever external hostility arises [@dedreu2010]. The endocrine system provides precisely this integrative machinery, aligning neuro-cognitive processing with peripheral physiological shifts that sharpen competitive readiness [@blackwell2024]. More specifically, in mammals, the oxytocinergic system is a prime candidate regulator of parochial altruism, able to modulate pro and anti-social responses concurrently [@dedreu2012; @bethlehem2014; @trumble2015; @crespi2016].
+
+Oxytocin (OT) is a nonapeptide, highly conserved in mammals, produced primarily by the hypothalamus. It then diffuses in two ways: centrally, by modulating neuronal activity, and peripherally, via the blood. When released peripherally, OT circulates in plasma and is eliminated by renal filtration, while a small fraction reaches saliva through transfer via the salivary glands [@amico1987; @jong2015]. While it is therefore possible to quantify OT production in plasma, saliva or urine, urinary OT has the advantage to provide an integrated measure of peripheral exposure accumulated since the last urination, rather than a momentary snapshot, thus offering better detection of pulsatile events [@gnanadesikan2021].
+
+Long heralded as the ‘love hormone’, oxytocin's reputation is now more nuanced as it may also facilitate ethnocentrism and domestic violence [@dedreu2011; @dewall2014]. This apparently paradoxical duality becomes clearer if we consider OT not as intrinsically prosocial or antisocial, but as an adaptive coordination system. In the context of inter-group conflict, an increase in OT can simultaneously (i) enhance in-group cooperation, trust and synchrony, and (ii) increase vigilance or aggression towards the out-group [@macdonald2010; @dedreu2012]. One potential mechanism which could facilitate this is social salience, defined as the contextual relevance given to social stimuli [@shamay-tsoory2016]. Indeed, intranasal OT increases attention to out-group faces and enhances processing of relevant social cues, whether positive or negative[@bartz2011; @olff2013; @shamay-tsoory2013; @shamay-tsoory2016]. OT could also facilitate group cooperation and competition by encoding the valence (positive or negative) of a situation and motivate approach or avoidance [@kemp2011; @harari-dahan2014]. Thus, OT is a strong candidate for an adaptive coordination system underlying group cooperation and competition [@trumble2015; @crespi2016].
+
+OT research in humans has been dominated by laboratory studies using exogenous OT administration , which is key to demonstrating causality and identifying specific mechanisms; however, measuring naturally occurring hormone variation in ecologically valid contexts may be more informative about the evolutionary functions of endocrine systems [@roney2016]. In several non-human species, experimental manipulations and field endocrinology have been more explicitly integrated. While laboratory studies establish causal behavioural effects, field research shows that hormone concentrations fluctuate predictably in contexts such as mating, territorial defence, or intergroup conflict. Although these approaches do not always produce perfectly convergent findings, such discrepancies have clarified the context-dependence and socioecological specificity of oxytocinergic effects. To date, very few studies have examined whether natural social stressors in humans, including group-level cooperation or rivalry, are sufficient to elicit a comparable physiological response [@mcclung2018]. Field evidence from non-human primates supports the hypothesis that OT regulates parochial cooperation. For instance, in chimpanzees, border patrols and hostile confrontations result in a significant rise in urinary OT, detected both before and during the confrontation [@samuni2017]. In bonobos (*Pan paniscus*), however, there is no OT response to inter-group encounters [@cheng2025], consistent with their lower levels of between-group competition [@moscovice2022; @cheng2022; @samuni2023]. In humans, who are capable of both peaceful and hostile inter-group relations [@pisor2024], it has not yet been demonstrated that an external threat is sufficient to trigger the release of OT and, in so doing, to influence cooperation or competition.
+
+From an evolutionary perspective, hormonal systems should be examined under the energetic and immunological constraints of ancestral lifeways [@trumble2015]. Indeed, hormones are often viewed as mediators of competing demands such as growth, immune defence, and reproduction, and accordingly hormone profiles vary predictably with local ecology [@jasienska2003; @blackwell2016; @jasienska2017]. For instance, testosterone levels decline during illness or nutritional shortfalls [@trumble2010; @simmons2009], and consequently men in subsistence societies, who experience such energetic stress more frequently, exhibit substantially lower baseline testosterone than men in industrialised societies [@ellison2002; @trumble2012; @trumble2023]. In recent work among the Tsimane’, it has been shown that breastfeeding was the dominant predictor of variation in OT levels in women, and higher OT was associated with better self-rated health, consistent with OT’s beneficial effects on various physiological systems (Colby et al., *under review*). However, the degree to which OT mediates energetic tradeoffs involved in cooperation and competition remains poorly understood [@gangestad2016; @grebe2019; @quintana2020].
+
+Here, we tested the hypothesis that OT mediates parochial cooperation among the Tsimane’ forager-horticulturalists of the Bolivian Amazon. The Tsimane’ resemble the aforementioned ancestral conditions insofar as they live with high pathogen burdens, limited caloric surpluses, and structure their social relationships predominantly around kinship ties within relatively small communities. These communities are generally composed of several dozen households loosely linked by shared facilities such as a school or road and an elected community representative (*corregidor*) [@gurven2008; @gurven2017; @vonrueden2023]. Within these communities, clusters of related households and extended family networks cooperate in daily tasks and (re)production, while also competing with others for status and resources. Relationships with members of neighbouring communities are generally less frequent and less central to everyday cooperation, even though people often have some kin in other villages and may move between communities few times in their lives while trying to remain near close relatives [@vonrueden2011; @hooper2015; @jaeggi2016; @alami2020; @martin2025]. Crucially, football matches, which occur with relative regularity and have been ethnographically documented as emotionally intense and socially salient competitions[@trumble2012], provide a naturalistic yet ethically acceptable proxy for inter-group conflict that simultaneously requires coordinated cooperation within teams. We therefore predicted that engaging in between-group competition, such as a football match, will elicit a rise in OT compared to pre-match levels, above and beyond the effects of physical activity. Additionally, given that previous research has identified sex differences in OT responses to social stimuli[@rilling2014; @gao2016], we investigated whether OT responses to inter-group competition differ between men and women, thus allowing us to explore potential sex-specific mechanisms underlying parochial cooperation. Furthermore, organising football matches allowed us to experimentally vary the level of out-group salience, which has been rarely explored in studies on OT and parochial cooperation, with few exceptions [@shamay-tsoory2013].
+
+In this study we focused on three levels of out-group salience: teams from the same community (close, regular in-group opponents drawn from distinct extended-family coalitions), different communities (co-ethnic opponents who are less central to everyday cooperation despite some kin ties and occasional mobility), and non-Tsimane’ (a clearly bounded ethnic out-group, e.g. NGO workers or town footballers, often perceived as socially and economically more distant) and we hypothesised two competing patterns of OT release. First, we predicted a strong OT response to teams from the same community, who regularly compete outside of the football context, as proposed by the “nasty neighbour effect" [@romano2024]. Among the Tsimane’, opposing teams from the same community map onto distinct extended-family networks that typically cooperate internally but compete over resources such as land and local status, making these kin-based coalitions natural candidates for “neighbouring groups” in this context. Second, we expected a strong response against non-Tsimane’ teams, as Tsimane’ may sometimes experience discrimination and economic exploitation from outsiders and have a strong ethnic identity[@pisor2018; @comitéparalaeliminacióndeladiscriminaciónracial2021]. As a result, we predicted the lowest OT response to teams from other communities, who share an ethnic identity but are not in direct competition in daily life.
+
+# **Material and Methods**
+
+## **Study Population**
+
+Hormonal and behavioural data were collected from `r NumberPlayerAll` Tsimane’ participants (`r NumberPlayerMen` men, `r NumberPlayerWomen` women) aged `r Age_Min`-`r Age_Max` (mean age = `r AgeStatsAll$MeanAge` ; SD = `r AgeStatsAll$SDAge`) and comprise `r NumberSamples` urine samples (Pre-Football : `r NumberPreSamples` samples ; Post-Football : `r NumberPostSamples` samples) collected across two fieldwork seasons in March–April 2023 (‘FW1’) and October–December 2023 (‘FW2’).
+
+The Tsimane’ are forager-horticulturalists of the Amazonian Bolivian basin (Beni region) who reside mainly along the Maniqui River and its tributaries. They are spread across around 95 communities, each with populations ranging from a few dozen to several hundred individuals [@gurven2017].
+
+Tsimane’ social organisation centers around tightly knit clusters of nuclear and extended families, within which daily labour, meals, and other resources are routinely pooled [@hooper2015; @jaeggi2016]. Largely isolated from wider Bolivian society until the mid-twentieth century, they became more connected after missionaries arrived and a road linked them to the highlands[@reyes-garcía2014]. Unlike Amazonian horticulturalists such as the Shuar or Yanomamo, they have no documented history of inter-community warfare. Collective endeavours instead include communal feasts, group hunting/fishing, infrastructure projects and occasional football matches[@trumble2012; @glowacki2015; @gurven2008]. Although ethnically homogeneous, Tsimane’ interact with outsiders through trade in market towns, work for ranchers or logging companies, and occasional visits by NGOs or anthropologists. Since government resettlement programmes in the 1960s, nearby settlement by Andean descendants (*Interculturales*) has been associated with reported discrimination and conflict[@pisor2018; @comitéparalaeliminacióndeladiscriminaciónracial2021].
+
+Although increasingly exposed to the market economy, the Tsimane’ maintain a lifestyle relatively similar to that of subsistence populations prior to the emergence of mechanised agriculture and industrialisation more widely. Accordingly, daily activities continue to centre on subsistence horticulture, hunting and fishing; lack of access to clean water and limited hygiene also expose individuals to a substantial pathogen burden and therefore placing consistently high energetic demands on immune function [@gurven2017; @trumble2023]. Moreover, unlike Western populations, Tsimane women experience very high fertility and nearly all infants are breastfed for extended periods [@viele2014].
+
+## **Physical Inter-group competitive context**
+
+Tsimane’ men play football on average 3.1 times per week (SD = 1.5) [@trumble2012]. Although it is not uncommon for women to participate in football matches, they do so less frequently [@caldwell2016]. On typical days, matches are played between players from the same community, often with relatively random teams, while Sundays may see matches between neighbouring communities.
+
+Participants in this study were recruited from four Tsimane’ communities. To vary group salience, we organised matches at three distinct competitive levels: intra-community fixtures (matches among players from within the same community), inter-community fixtures (matches between players from different Tsimane’ communities), and Tsimane’ versus non-Tsimane’ (matches against ethnically distinct outsiders). Players participating in inter-community fixtures were recruited from neighbouring communities and travelled to the hosting community on the morning of the tournament. Non-Tsimane’ participants in the Tsimane’ versus non-Tsimane’ fixtures included NGO workers and a team from the nearby town of San Borja. Non-Tsimane’ opponents were not sampled as part of this study.
+
+For all matches, players independently formed their teams prior to data collection, reflecting natural social divisions within their communities and between neighbouring communities. Consequently, teams consisted of individuals sharing geographical proximity and strong familial or social ties. In total, `r NumberTeamMen` male teams (Mean Age = `r MeanAgeMen` ; SD = `r SDAgeMen`) and `r NumberTeamWomen` female teams (Mean Age = `r MeanAgeWomen` ; SD = `r SDAgeWomen`) participated in the study. The team compositions remained unchanged across all fixtures and competition levels, and no player transferred between teams.
+
+To further raise competitive stakes, the matches were organised as tournaments, with each player receiving a prize of increasing value based on their final ranking. The top prize was equivalent to roughly one day’s wages, with lower-ranked prizes proportionally smaller.
+
+| **Fieldwork** | **Out-Group type** | **Men** | **Women** | **Breastfeeding Samples** | **Total Samples** |
+|----|----|----|----|----|----|
+| **FW1** | Intra-community | **14** (pre:11, post:14) | **11** (pre:11, post:10) | pre:6, post:6 | **46** |
+|  | Tsimane VS Non-Tsimane | **10** (pre:10, post:10) | \- | \- | **20** |
+| **FW2** | Intra-community | **19** (pre:19, post:18) | **25** (pre:25, post:25) | pre:11, post:11 | **87** |
+|  | Inter-community | **9** (pre:9, post:9) | \- | \- | **18** |
+|  | Tsimane VS Non-Tsimane | **8** (pre:8, post:8) | \- | \- | **16** |
+
+**Table 1. Sample distribution across fieldwork seasons and out-group types.** Bold numbers indicate the number of unique players sampled in each condition. Values in parentheses show the number of pre-football and post-football urine samples, respectively. The “Breastfeeding samples” column reports the number of pre- and post-football samples provided by breastfeeding women, and “Total samples” corresponds to the total number of pre- and post-football samples in each cell.
+
+## **Sample Collection**
+
+Matches lasted 40 minutes. Each half lasted 15 minutes with a 10-minute break. Pre-match urine samples were collected 10 minutes before kick-off, while post-match samples were collected 10 minutes after the end of the match. In humans, it has been reported that urinary OT concentrations peak approximately 30–60 min after systemic administration [@amico1987; @tabak2023]. Accordingly, by imposing a minimum interval of one hour between pre- and post-match urine collections, any oxytocin fluctuations resulting from football participation should be reliably detectable.
+
+We collected 1.5mL (FW1) or 3mL (FW2) of urine per participant. Following collection, and in order to prevent OT degradation, urine samples from FW2 were immediately acidified with 10 μL/mL phosphoric acid. All samples were stored in liquid nitrogen in the field within minutes of collection, and shipped on dry ice to the laboratory, where they were kept at -80°C prior to OT quantification [@gerred2024].
+
+Across all fixtures, most players contributed a single pair of samples (one pre- and one post-football sample from one match), and only a small subset of players were sampled in more than one match (5 duplicate pre-football samples and 7 duplicate post-football samples). Importantly, all repeat-sampled participants were sampled within the same team and never appeared in multiple teams.
+
+## **OT measurements**
+
+Peripheral urine oxytocin concentrations (pg/mL) were assessed by the The Wisconsin National Primate Research Center at the University of Wisconsin-Madison by performing RadioImmunoAssay (RIA). Phoenix Pharmaceuticals Oxytocin RIA kits were employed for the analysis. The samples underwent a solid-phase extraction procedure in order to reduce molecular interference, lessen the impacts of the sample matrix, and get a 12-fold analyte concentration [@szeto2011; @gerred2024]. Wherever possible, pre- and post-football samples from the same participant were assayed within the same batch to reduce variability arising from inter-assay differences and to better isolate football-related changes in oxytocin levels. The intra-assay coefficient of variation (CV) ranged from 3.1% to 5.8%, and the inter-assay CV ranged from 6.4% to 7.9%.
+
+## **Physical Activity**
+
+OT levels may be affected by physical activity [@wirobski2024]. To adjust for this, the physical activity of a subset of players (n = 30) , from the second field season, was assessed using wrist-worn Actigraph wGT3X accelerometers [@hildebrand2014]. Physical activity was quantified as steps per minute over the 40-minute match duration (Minimum : 23.1 Maximum : 74.8 ; mean = 53.1 ; SD = 10.8).
+
+## **Specific Gravity Correction**
+
+To control for hydration status, specific gravity (SG), defined as the ratio of the density of urine to that of distilled water, was measured immediately after collection using an ATAGO™ Master-URC/NM refractometer. Urine concentrations were then normalised by applying a specific gravity correction, according to the following formula [@miller2004]:
+
+$$
+{\text{Corrected OT Concentration}} = 
+{\text{Raw OT Concentration}} \times 
+\frac{
+\text{mean}SG_{\text{pop}}- 1.0}
+{SG_{\text{sample}}- 1.0
+}
+$$
+
+Where $\text{mean}SG_{\text{pop}}$ represents the mean specific gravity of all samples, and $SG_{\text{sample}}$ is the specific gravity of the sample to which the correction is applied.
+
+The specific gravity correction has been preferred to the conventional creatinine correction to ensure the stability and reliability of our hormone assays based on punctual samples. Specific gravity accurately reflects the total concentration of urinary solutes under normal physiological conditions and remains stable during storage, whereas creatinine degrades during extended storage and repeated freeze-thaw cycles. Furthermore, creatinine excretion varies considerably according to intrinsic and behavioural factors; including sex, age, muscle mass, physical activity, dietary intake, and time of day; which undermines its reliability as a correction method, particularly at low urinary concentration [@white2010; @wirobski2021].
+
+## **Statistical Analyses**
+
+All statistical analyses were conducted within a Bayesian framework. This allows probabilistic interpretation of parameter estimates and transparent quantification of uncertainty [@mcelreath2018]. Rather than relying on p-values or dichotomous significance tests, the results are presented in the form of full posterior distributions for all parameters of interest.
+
+For each variable of interest we present the posterior mean (b), the 95% credible interval (lower and upper bounds: l-95% CrI and u-95% CrI), and the posterior probability (P\>0) that the effect lies in the expected direction. The (P\>0) is calculated as the proportion of the posterior distribution falling above zero, which provides a direct measure of our confidence in the presence and direction of an association. 
+
+To support interpretation, we also visualise model predictions using conditional effect plots. These plots illustrate the estimated relationship between each predictor and the outcome variable, while holding other co-variates constant.
+
+### **Main Model : Competition Model**
+
+We modelled corrected OT concentration using log-normal Bayesian mixed-effects models in the so called "Competition Model". This approach accounts for the positively skewed distribution of hormonal data and allows for hierarchical structuring of sources of variation, including individual identity and technical factors (such as field season, or assay batch). Furthermore, these models allowed us to account for censoring, when hormone levels were below the detection limit of the assay. Specifically, we assume that the logarithm of OT concentration $Y_{ij}$, where $i$ indexes the observations and $j$ indexes the individual participant, is normally distributed :
+
+\
+
+$$
+\begin{equation}\log(Y_{ij}) \sim \begin{cases}\mathcal{N}(\mu_{ij}, \sigma^{2}), & \text{if } L < Y_{ij} < R, \\\text{left-censored at } L, & \text{if } Y_{ij} \leq L,\end{cases}\end{equation}
+$$
+
+Here, $L = 0.201$ pg/mL corresponds to the lower limit of assay detection. OT values at or below this threshold were treated as left-censored.
+
+For this model, the linear predictor of the mean $\mu_{ij}$ is specified as:
+
+$$
+\begin{equation}\begin{aligned}\mu_{ij} =\;& \beta_{\text{Intercept}}+ \beta_{1}\, Sex_{ij}+ \beta_{2}\, SampleType_{ij}+ \beta_{3}\, (Sex \times SampleType)_{ij} \\&+ \beta_{4}\, Breastfeeding_{ij}+ \beta_{5}\, Age_{ij}+ \beta_{6}\, Lot_{ij}+ \beta_{7}\, FW_{ij} \\&+ u_{\text{PID},0[j]}+ u_{\text{PID},1[j]}\, SampleType_{ij} \\&+ u_{\text{Team}[i]}+ u_{\text{RIA}[i]}+ u_{\text{Extraction}[i]}\end{aligned}\end{equation}
+$$
+
+Fixed effects included Sex (women vs men), Sample Type (pre-football vs. post-football sample), Breastfeeding (no vs yes), standardised Age (Age), Extraction Lot (Lot), and Fieldwork (FW). To account for possible differential responses between men and women players, an interaction between Sex and Sample Type was included.
+
+Random effects $u \sim \mathcal{N}(0, \sigma^{2})$ were specified at several levels. We included a random intercept and a by-participant random slope for Sample Type for each player (PID), as well as random intercepts for team (TeamName), assay batch (RIA), and extraction batch (Extraction), each with its own group-level variance component, to account for any non-independence at these levels.
+
+We used weakly regularising priors: $\beta_k \sim \mathcal{N}(0, 1)$ for fixed effects and $\sigma_j \sim \text{Exponential}(1)$ for group-level standard deviations, in order to improve convergence and prevent implausibly extreme values without imposing overly strong constraints.
+
+### **Extended Model : Group Salience Model**
+
+To test whether the salience of social context modulated OT concentrations, we extended the main model to include a three-way interaction between Sex, Sample Type (pre-football vs. post-football sample), and out-group Type (intra-community, inter-community, Tsimane’ vs non-Tsimane’). The linear predictor was defined as :
+
+$$
+\begin{equation}\begin{aligned}\mu_{ij} = \,& \beta_{\text{Intercept}} + \beta_{1} \cdot Sex_{ij} + \beta_{2} \cdot SampleType_{ij} + \beta_{3} \cdot GameType_{ij} \\&+ \beta_{4} \cdot (Sex \times SampleType)_{ij} + \beta_{5} \cdot (Sex \times GameType)_{ij} + \beta_{6} \cdot (SampleType \times GameType)_{ij} \\&+ \beta_{7} \cdot (Sex \times SampleType \times GameType)_{ij} \\&+ \beta_{8} \cdot Breastfeeding_{ij} + \beta_{9} \cdot Age_{ij} + \beta_{10} \cdot Lot_{ij} \\&+ u_{\text{PID},0[j]}+ u_{\text{PID},1[j]}\, SampleType_{ij} \\&+ u_{\text{Team}[i]}+ u_{\text{RIA}[i]}+ u_{\text{Extraction}[i]}\end{aligned}\end{equation}
+$$
+
+Random effects and priors followed the same specifications as the previous model.
+
+### **Physical Activity Model**
+
+To assess whether changes in physical activity could explain variation in OT levels, we modelled post-football OT concentration as a log-normal Bayesian mixed-effects function of average steps per minute during the match with a sex interaction, while adjusting for pre-football OT and relevant covariates, and accounting for technical clustering and censoring.
+
+All models were implemented in RStudio (version 4.2.1), with Bayesian mixed-effects models implemented through the **`brms`** and **`rstan`** packages [@bürkner2018]. Model convergence was assessed using R-hat statistics (all = 1), effective sample sizes, and visual inspection of trace plots. For models that exhibited divergent transitions with default settings, we increased the Stan target acceptance rate (adapt_delta) to 0.99 to improve sampling efficiency; this tuning step affects only sampling efficiency and does not change the posterior estimates.
+
+# **Results**
+
+## **Effect of Competition**
+
+```{r - Figure and Summary Model Competition ,echo=FALSE,include=FALSE, message=FALSE, warning=FALSE, results="hide"}
+
+################################################################################################ 
+# Loading the Model Competition
+################################################################################################ 
+Path_ModelCompetition_RandomSlopes_Teams <- file.path(PathToRProject, 
+                              "OTProject.Football.Models",
+                              "OTProject.Football.Models",
+                               "Football.ModelCompetition_RandomSlopes_Teams.rds")
+
+
+Model_Competition <- readRDS(Path_ModelCompetition_RandomSlopes_Teams)
+
+
+################################################################################################ 
+# Extracting Model Competition's terms 
+################################################################################################ 
+Model_Competition_Terms <- c("Intercept",
+                             "SexM",
+                             "SampleTypePostMFootball",
+                             "Breastfeeding.Method11",
+                             "StandAge",
+                             "FieldWorkFW2",
+                             "Lot511757",
+                             "Lot511909",
+                             "Lot511938",
+                             "SexM:SampleTypePostMFootball")
+
+################################################################################################ 
+# Extracting Model Competition Summary data 
+################################################################################################ 
+
+Model_Competition_Summary <- round(fixef(Model_Competition)[Model_Competition_Terms, c("Estimate","Est.Error","Q2.5","Q97.5"), drop=FALSE], 2)
+Model_Competition_Summary
+
+# P>0 
+Post_Model_Competition <- as.data.frame(fixef(Model_Competition, summary = FALSE))
+PositPost_Model_Competition <- sapply(Post_Model_Competition, function(x) mean(x > 0)) 
+
+
+Post_Model_Competition <- posterior_samples(Model_Competition)
+PositPost_Model_Competition <- sapply(Post_Model_Competition, function(x) mean(x > 0)) 
+
+sprintf("%.2f",PositPost_Model_Competition["b_SexM:SampleTypePostMFootball"])
+###############################################################################################
+# Extracting Model Competition Summary data 
+###############################################################################################
+
+ModelCompetition_Posteriors <- posterior_samples(Model_Competition)
+
+
+# Compute posteriors for men and women
+Function.ComputePosteriors <- function(Intercept, EffectMen = 0, EffectPostFoot = 0, InteractionMenPostFoot = 0) {
+  pre_foot <- Intercept + EffectMen
+  post_foot <- Intercept + EffectMen + EffectPostFoot + InteractionMenPostFoot
+  effect <- post_foot - pre_foot
+  return(data.frame(FootballEffect = effect))
+}
+
+# Extract coefficients
+Intercept <- ModelCompetition_Posteriors$b_Intercept
+EffectMen <- ModelCompetition_Posteriors$b_SexM
+EffectPostFoot <- ModelCompetition_Posteriors$b_SampleTypePostMFootball
+InteractionMenPostFoot <- ModelCompetition_Posteriors$`b_SexM:SampleTypePostMFootball`
+
+# Compute effects for men and women
+Model_CompetitionEffect.Men <- Function.ComputePosteriors(Intercept, EffectMen, EffectPostFoot, InteractionMenPostFoot)
+Model_CompetitionEffect.Women <- Function.ComputePosteriors(Intercept, 0, EffectPostFoot, 0)
+
+# Compute positive posteriors
+Function.ComputePositivePosteriors <- function(effect_df, threshold = 0) {
+  return(round(sum(effect_df$FootballEffect > threshold) / nrow(effect_df), 2))
+}
+
+# Positive posteriors for men
+PositivePosteriors.Men <- Function.ComputePositivePosteriors(Model_CompetitionEffect.Men)
+# Positive posteriors for women
+PositivePosteriors.Women <- Function.ComputePositivePosteriors(Model_CompetitionEffect.Women)
+
+
+
+# b_MenPostFootball_ModelCompetition 
+# l95_MenPostFootball_ModelCompetition
+# u95_MenPostFootball_ModelCompetition
+# PP_MenPostFootball_ModelCompetition
+
+b_WomenPostFootball_ModelCompetition <- Model_Competition_Summary["SampleTypePostMFootball","Estimate"]
+l95_WomenPostFootball_ModelCompetition <- Model_Competition_Summary["SampleTypePostMFootball","Q2.5"]
+u95_WomenPostFootball_ModelCompetition <- Model_Competition_Summary["SampleTypePostMFootball","Q97.5"]
+
+
+
+# b_Breastfeeding_ModelCompetition
+# l95_Breastfeeding_ModelCompetition
+# u95_Breastfeeding_ModelCompetition
+
+
+
+
+###############################################################################################
+
+
+# Function to  add the Group column
+Function.RenameAndLabel <- function(DF, GroupName) {
+  DF <- DF %>%
+    mutate(Group = GroupName)
+  return(DF)
+}
+
+Model_CompetitionEffect.Men <- Function.RenameAndLabel(Model_CompetitionEffect.Men, "Men")
+Model_CompetitionEffect.Women <- Function.RenameAndLabel(Model_CompetitionEffect.Women, "Women")
+
+# Combine both datasets (Model_CompetitionEffect.Men + Model_CompetitionEffect.Women -> CombinedEffect)
+CombinedEffect <- bind_rows(Model_CompetitionEffect.Men, Model_CompetitionEffect.Women)
+
+# Function to compute density and extract the maximum density value
+Function.ComputeDensity <- function(DF) {
+  DensityData <- density(DF$FootballEffect)
+  return(list(
+    max_effect = DensityData$x[which.max(DensityData$y)],
+    max_density = max(DensityData$y)
+  ))
+}
+
+# Compute density values for men and women
+DensityMen <- Function.ComputeDensity(Model_CompetitionEffect.Men)
+DensityWomen <- Function.ComputeDensity(Model_CompetitionEffect.Women)
+
+# # Define group names with posterior values
+# CombinedEffect$Group <- factor(
+#   CombinedEffect$Group, 
+#   levels = c("Men", "Women"), 
+#   labels = c(
+#     sprintf("Men: Post-competition ; P(> 0) = %.2f", PositivePosteriors.Men),
+#     sprintf("Women: Post-competition ; P(> 0) = %.2f", PositivePosteriors.Women)
+#   )
+# )
+###############################################################################################
+# FIGURE 1.A + FIGURE 1.B
+# Legends are NOT drawn inside the individual plots.
+# Legends are extracted and added ONLY at the end, centered vertically next to each panel.
+###############################################################################################
+
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(cowplot)
+
+###############################################################################################
+# FIGURE 1.A (build plot WITHOUT showing the legend)
+###############################################################################################
+
+# 1) Build density curves by group + tag negative/positive x
+DensityData_ModelCompetition <- CombinedEffect %>%
+  mutate(
+    # Standardize group labels (edit here if your Group values differ)
+    GroupLab = case_when(
+      Group %in% c("M", "Men")   ~ "Men",
+      Group %in% c("F", "Women") ~ "Women",
+      TRUE ~ as.character(Group)
+    )
+  ) %>%
+  group_by(GroupLab) %>%
+  do({
+    d <- density(.$FootballEffect, na.rm = TRUE)
+    data.frame(
+      EffectValue   = d$x,
+      EffectDensity = d$y,
+      Group         = unique(.$GroupLab)
+    )
+  }) %>%
+  ungroup() %>%
+  mutate(PosNeg = ifelse(EffectValue < 0, "Negative", "Positive"))
+
+# 2) Compute P(Effect > 0) for legend labels
+pp_df <- CombinedEffect %>%
+  mutate(
+    GroupLab = case_when(
+      Group %in% c("M", "Men")   ~ "Men",
+      Group %in% c("F", "Women") ~ "Women",
+      TRUE ~ as.character(Group)
+    )
+  ) %>%
+  group_by(GroupLab) %>%
+  summarise(P_gt_0 = mean(FootballEffect > 0, na.rm = TRUE), .groups = "drop")
+
+legend_labels_A <- setNames(
+  sprintf("%s (P>0) = %.2f", pp_df$GroupLab, pp_df$P_gt_0),
+  pp_df$GroupLab
+)
+
+group_colors_A <- c(Men = "#007649", Women = "#593987")
+
+# 3) Build Figure 1.A (legend OFF here)
+Figure1.A <- ggplot() +
+  # Density outline
+  geom_line(
+    data = DensityData_ModelCompetition,
+    aes(x = EffectValue, y = EffectDensity, group = Group),
+    linewidth = 0.4, color = "black"
+  ) +
+  # < 0 in grey
+  geom_ribbon(
+    data = filter(DensityData_ModelCompetition, PosNeg == "Negative"),
+    aes(x = EffectValue, ymin = 0, ymax = EffectDensity, group = Group),
+    fill = "grey70", alpha = 0.6
+  ) +
+  # > 0 filled by group
+  geom_ribbon(
+    data = filter(DensityData_ModelCompetition, PosNeg == "Positive"),
+    aes(x = EffectValue, ymin = 0, ymax = EffectDensity, fill = Group, group = Group),
+    alpha = 0.6
+  ) +
+  # Vertical line at 0
+  geom_vline(xintercept = 0, linetype = "dotted", color = "black") +
+  labs(
+    title = "",
+    x = "Effect of Football competition on Oxytocin",
+    y = "Density",
+    fill = "Group"
+  ) +
+  scale_fill_manual(
+    values = group_colors_A,
+    breaks = names(group_colors_A),
+    labels = legend_labels_A,
+    guide  = guide_legend(override.aes = list(shape = 16, size = 3))
+  ) +
+  theme_minimal() +
+  theme(
+    plot.background  = element_rect(fill = "transparent", color = NA),
+    panel.background = element_rect(fill = "transparent", color = NA),
+    panel.grid.major = element_line(color = "azure4", linewidth = 0.05),
+    panel.grid.minor = element_line(color = "azure4", linewidth = 0.05),
+    plot.title       = element_text(size = 14, face = "bold"),
+    axis.title.x     = element_text(size = 12, margin = margin(t = 10)),
+    axis.title       = element_text(size = 12),
+    axis.text        = element_text(size = 10),
+    legend.position  = "none"   # IMPORTANT: legend drawn only at the end
+  )
+
+###############################################################################################
+# FIGURE 1.B (build plot WITHOUT showing the legend)
+###############################################################################################
+
+group_levels <- c("M_Pre-Football", "M_Post-Football", "F_Pre-Football", "F_Post-Football")
+
+raw_df <- Model_Competition$data %>%
+  filter(!is.na(CorrectedOT), !is.na(Sex), !is.na(SampleType)) %>%
+  mutate(
+    SampleType = factor(SampleType, levels = c("Pre-Football", "Post-Football")),
+    SexLab      = factor(Sex, levels = c("F", "M"), labels = c("Women", "Men")),
+    Group       = factor(paste(Sex, SampleType, sep = "_"), levels = group_levels)
+  )
+
+center_val <- mean(raw_df$CorrectedOT, na.rm = TRUE)
+
+ce <- conditional_effects(Model_Competition, effects = "Sex:SampleType")$`Sex:SampleType` %>%
+  mutate(
+    SampleType = factor(SampleType, levels = c("Pre-Football", "Post-Football")),
+    SexLab      = factor(Sex, levels = c("F", "M"), labels = c("Women", "Men")),
+    Group       = factor(paste(Sex, SampleType, sep = "_"), levels = group_levels),
+    estimate_c  = estimate__ - center_val,
+    lower_c     = lower__    - center_val,
+    upper_c     = upper__    - center_val
+  )
+
+raw_df <- raw_df %>%
+  mutate(CorrectedOT_c = CorrectedOT - center_val)
+
+cols_B <- c(
+  "M_Pre-Football"  = alpha("#007649", 0.3),
+  "M_Post-Football" = alpha("#007649", 0.6),
+  "F_Pre-Football"  = alpha("#593987", 0.3),
+  "F_Post-Football" = alpha("#593987", 0.6)
+)
+
+shapes_B <- c(
+  "M_Pre-Football"  = 16,
+  "M_Post-Football" = 15,
+  "F_Pre-Football"  = 16,
+  "F_Post-Football" = 15
+)
+
+labels_B <- c(
+  "M_Pre-Football"  = "Men - Pre-competition",
+  "M_Post-Football" = "Men - Post-competition",
+  "F_Pre-Football"  = "Women - Pre-competition",
+  "F_Post-Football" = "Women - Post-competition"
+)
+
+# Reduce the horizontal gap between Women and Men
+sex_gap <- 0.3
+x_women <- 1
+x_men   <- 1 + sex_gap
+
+ce <- ce %>% mutate(SexPos = ifelse(SexLab == "Women", x_women, x_men))
+raw_df <- raw_df %>% mutate(SexPos = ifelse(SexLab == "Women", x_women, x_men))
+
+dodge_w <- 0.3
+
+Figure1.B_PR <- ggplot(ce, aes(x = SexPos, y = estimate_c, color = Group, shape = Group)) +
+  # geom_hline(yintercept = 0, linetype = "dashed", linewidth = 0.6, alpha = 0.5) +
+  geom_point(aes(group = SampleType), position = position_dodge(dodge_w), size = 4) +
+  geom_errorbar(
+    aes(ymin = lower_c, ymax = upper_c, group = SampleType),
+    position = position_dodge(dodge_w), width = 0.2
+  ) +
+  geom_point(
+    data = raw_df,
+    aes(x = SexPos, y = CorrectedOT_c, color = Group, shape = Group),
+    inherit.aes = FALSE,
+    alpha = 0.40, size = 1.1,
+    position = position_jitterdodge(jitter.width = 0.08, dodge.width = dodge_w)
+  ) +
+  scale_x_continuous(
+    breaks = c(x_women, x_men),
+    labels = c("Women", "Men"),
+    expand = c(0.02, 0.02)
+  ) +
+  scale_color_manual("Condition", values = cols_B, labels = labels_B) +
+  scale_shape_manual("Condition", values = shapes_B, labels = labels_B) +
+  coord_cartesian(ylim = c(-0.7, 0.7)) +
+  labs(x = "Sex", y = "Corrected OT (centered; pg/mL)") +
+  theme_minimal() +
+  theme(
+    legend.position = "none"  # IMPORTANT: legend drawn only at the end
+  )
+
+###############################################################################################
+# COMBINE A + B, then add legends at the end (right side, vertically centered per panel)
+###############################################################################################
+
+# Shared legend styling (applied only when extracting legends)
+legend_theme_shared <- theme(
+  legend.position   = "right",
+  legend.title      = element_text(face = "bold", size = 10),
+  legend.text       = element_text(size = 9),
+  legend.key        = element_blank(),
+  legend.key.size   = unit(0.6, "cm"),
+  legend.spacing.y  = unit(2, "pt"),
+  legend.background = element_rect(fill = alpha("white", 0.7), color = NA),
+  legend.margin     = margin(4, 4, 4, 4)
+)
+
+# Extract legends from temporary versions that show the legend
+leg_A <- cowplot::get_legend(Figure1.A + legend_theme_shared + theme(legend.position = "right"))
+leg_B <- cowplot::get_legend(Figure1.B_PR + legend_theme_shared + theme(legend.position = "right"))
+
+# Add panel titles AFTER legend extraction (titles won't affect legend grobs)
+A_panel <- Figure1.A +
+  ggtitle("A") +
+  theme(plot.title = element_text(hjust = 0, face = "bold", size = 14),
+        plot.margin = margin(6, 6, 6, 6))
+
+B_panel <- Figure1.B_PR +
+  ggtitle("B") +
+  theme(plot.title = element_text(hjust = 0, face = "bold", size = 14),
+        plot.margin = margin(6, 6, 6, 6))
+
+# Align panel widths (left axes aligned)
+aligned_panels <- cowplot::align_plots(A_panel, B_panel, align = "v", axis = "l")
+A_al <- aligned_panels[[1]]
+B_al <- aligned_panels[[2]]
+
+# Turn legend grobs into plots, centered vertically in their cell (y = 0.5)
+legend_center_plot <- function(leg_grob, x_shift = 0) {
+  cowplot::ggdraw() +
+    cowplot::draw_grob(
+      leg_grob,
+      x = x_shift, y = 0.5,
+      hjust = 0, vjust = 0.5,
+      clip = "off"
+    ) +
+    ggplot2::theme(plot.margin = ggplot2::margin(0, 0, 0, 0))
+}
+
+# Legend column width (adjust if needed)
+legend_col_w <- 0.38
+
+row_A <- cowplot::plot_grid(A_al, legend_center_plot(leg_A), nrow = 1, rel_widths = c(1, legend_col_w))
+row_B <- cowplot::plot_grid(B_al, legend_center_plot(leg_B), nrow = 1, rel_widths = c(1, legend_col_w))
+
+Figure1 <- cowplot::plot_grid(
+  row_A, row_B,
+  ncol = 1,
+  rel_heights = c(1, 1.6),
+  align = "v",
+  axis = "l"
+)
+
+print(Figure1)
+
+# Define the file path for saving the figure
+Figure1.Path <- file.path(
+  PathToRProject,  
+  "OTProject.Football.Models",  
+  "OTProject.Football.Models.Figures",  
+  "Figure1.png"
+)
+
+# Save the figure
+ggsave(filename = Figure1.Path, plot = Figure1, width = 13, height = 8, dpi = 300)
+
+```
+
+![Oxytocin levels respond to competition in men but not women. (A) Posterior probability distribution of the effect of football competition on endogenous urinary oxytocin levels in men and women. The posterior distributions represent the predicted change in OT levels post-football compared to the pre-football levels, indicated by the dotted line at 0. Posterior probabilities P (\> 0) represent the proportion of the distribution that is greater than 0, directly quantifying the support for the predicted rise in oxytocin levels post-competition. (B) Conditional effects of sex and sample type (pre- vs. post-competition) on oxytocin concentration, illustrating changes in oxytocin levels before and after competition for both men and women. OT concentrations are grand-mean centered (i.e., values are expressed as deviations from the overall mean corrected OT level; 0 corresponds to the global mean).Small circles (pre-competition) and squares (post-competition) represent individual grand-mean–centered corrected OT values for each urine sample; some points fall outside the plotted range. Larger circles and squares represent predicted mean oxytocin concentrations, while bars indicate the 95% credible intervals.](images/Figure1.png){#fig-Figure1}
+
+| Predictor | Estimate (b) | Est. Error | l-95% CrI | u-95% CrI | P(\>0) |
+|----|----|----|----|----|----|
+| Intercept (Sex=W, SampleType=Pre, BF=No, FW=FW1, Lot=1) | `r Model_Competition_Summary["Intercept","Estimate"]` | `r Model_Competition_Summary["Intercept","Est.Error"]` | `r Model_Competition_Summary["Intercept","Q2.5"]` | `r Model_Competition_Summary["Intercept","Q97.5"]` | `r sprintf("%.2f",PositPost_Model_Competition["b_Intercept"])` |
+| Sex = M | `r Model_Competition_Summary["SexM","Estimate"]` | `r Model_Competition_Summary["SexM","Est.Error"]` | `r Model_Competition_Summary["SexM","Q2.5"]` | `r Model_Competition_Summary["SexM","Q97.5"]` | `r sprintf("%.2f",PositPost_Model_Competition["b_SexM"])` |
+| Sample Type = Post-Football | `r Model_Competition_Summary["SampleTypePostMFootball","Estimate"]` | `r Model_Competition_Summary["SampleTypePostMFootball","Est.Error"]` | `r Model_Competition_Summary["SampleTypePostMFootball","Q2.5"]` | `r Model_Competition_Summary["SampleTypePostMFootball","Q97.5"]` | `r sprintf("%.2f",PositPost_Model_Competition["b_SampleTypePostMFootball"])` |
+| Breastfeeding = Yes | `r Model_Competition_Summary["Breastfeeding.Method11","Estimate"]` | `r Model_Competition_Summary["Breastfeeding.Method11","Est.Error"]` | `r Model_Competition_Summary["Breastfeeding.Method11","Q2.5"]` | `r Model_Competition_Summary["Breastfeeding.Method11","Q97.5"]` | `r sprintf("%.2f",PositPost_Model_Competition["b_Breastfeeding.Method11"])` |
+| Age (standardised) | `r Model_Competition_Summary["StandAge","Estimate"]` | `r Model_Competition_Summary["StandAge","Est.Error"]` | `r Model_Competition_Summary["StandAge","Q2.5"]` | `r Model_Competition_Summary["StandAge","Q97.5"]` | `r sprintf("%.2f",PositPost_Model_Competition["b_StandAge"])` |
+| Lot 2 | `r Model_Competition_Summary["Lot511757","Estimate"]` | `r Model_Competition_Summary["Lot511757","Est.Error"]` | `r Model_Competition_Summary["Lot511757","Q2.5"]` | `r Model_Competition_Summary["Lot511757","Q97.5"]` | `r sprintf("%.2f",PositPost_Model_Competition["b_Lot511757"])` |
+| Lot 3 | `r Model_Competition_Summary["Lot511909","Estimate"]` | `r Model_Competition_Summary["Lot511909","Est.Error"]` | `r Model_Competition_Summary["Lot511909","Q2.5"]` | `r Model_Competition_Summary["Lot511909","Q97.5"]` | `r sprintf("%.2f",PositPost_Model_Competition["b_Lot511909"])` |
+| Lot 4 | `r Model_Competition_Summary["Lot511938","Estimate"]` | `r Model_Competition_Summary["Lot511938","Est.Error"]` | `r Model_Competition_Summary["Lot511938","Q2.5"]` | `r Model_Competition_Summary["Lot511938","Q97.5"]` | `r sprintf("%.2f",PositPost_Model_Competition["b_Lot511938"])` |
+| FieldWork = FW2 | `r Model_Competition_Summary["FieldWorkFW2","Estimate"]` | `r Model_Competition_Summary["FieldWorkFW2","Est.Error"]` | `r Model_Competition_Summary["FieldWorkFW2","Q2.5"]` | `r Model_Competition_Summary["FieldWorkFW2","Q97.5"]` | `r sprintf("%.2f",PositPost_Model_Competition["b_FieldWorkFW2"])` |
+| Sex = M : Sample Type = Post-Football | `r Model_Competition_Summary["SexM:SampleTypePostMFootball","Estimate"]` | `r Model_Competition_Summary["SexM:SampleTypePostMFootball","Est.Error"]` | `r Model_Competition_Summary["SexM:SampleTypePostMFootball","Q2.5"]` | `r Model_Competition_Summary["SexM:SampleTypePostMFootball","Q97.5"]` | `r sprintf("%.2f",PositPost_Model_Competition["b_SexM:SampleTypePostMFootball"])` |
+
+**Table 2 - Results of Competition Model predicting OT response to Football competition**. For each parameter, we reported the mean of the posterior probability distribution, the estimate error and the 95% Credible Intervals. P(\>0) represents the proportion of the posterior distribution above zero, indicating the probability of a positive effect.
+
+Football competition was associated with an increase in men's peripheral urinary OT levels ( b = `r Model_Competition_Summary["SexM:SampleTypePostMFootball","Estimate"]`; 95 % CrI= `r Model_Competition_Summary["SexM:SampleTypePostMFootball","Q2.5"]` - `r Model_Competition_Summary["SexM:SampleTypePostMFootball","Q97.5"]`; posterior probability of a positive effect P(\> 0) = `r sprintf("%.2f",PositPost_Model_Competition["b_SexM:SampleTypePostMFootball"])` ; Table 2, Figure 1). In contrast, OT levels in women did not change after the match (b = `r Model_Competition_Summary["SampleTypePostMFootball","Estimate"]`; 95 % CrI= `r Model_Competition_Summary["SampleTypePostMFootball","Q2.5"]` - `r Model_Competition_Summary["SampleTypePostMFootball","Q97.5"]`; P(\> 0) = `r sprintf("%.2f",PositPost_Model_Competition["b_SampleTypePostMFootball"])` Table 2, Figure 1). Breastfeeding was the strongest predictor of OT levels. Indeed, on the log-scale, breastfeeding women showed an increase of b = `r Model_Competition_Summary["Breastfeeding.Method11","Estimate"]` (95 % CrI= `r Model_Competition_Summary["Breastfeeding.Method11","Q2.5"]` - `r Model_Competition_Summary["Breastfeeding.Method11","Q97.5"]`; P(\> 0) = `r sprintf("%.2f",PositPost_Model_Competition["b_Breastfeeding.Method11"])` ;Table 2) compared to non-breastfeeding women (reference category). This corresponds to an average OT concentration approximately exp(`r Model_Competition_Summary["Breastfeeding.Method11","Estimate"]`) $\approx$ `r round(exp(Model_Competition_Summary["Breastfeeding.Method11","Estimate"]),2)`) times higher in breastfeeding women, thereby providing strong biological validation for our measurements.
+
+No other covariates in the model yielded credible effects (Table 2).
+
+## **Effect of Group Salience**
+
+```{r - Extracting Values for Summary Model Group Salience ,echo=FALSE,include=FALSE, message=FALSE, warning=FALSE, results="hide"}
+
+###############################################################################################
+# Loading the Model Competition
+###############################################################################################
+
+Path.ModelGroupSalience_RandomSlopes <- file.path(PathToRProject, 
+                              "OTProject.Football.Models",
+                              "OTProject.Football.Models",
+                               "Football.Model.GroupSalience_RandomSlopes_Teams.rds")
+
+Model_GroupSalience <- readRDS(Path.ModelGroupSalience_RandomSlopes)
+
+
+###############################################################################################
+# Extracting Model Competition's terms 
+###############################################################################################
+Model_GroupSalience_Terms <- rownames((summary(Model_GroupSalience))$fixed)
+
+###############################################################################################
+# Extracting Model Competition Summary data 
+###############################################################################################
+
+Model_GroupSalience_Summary <- round(fixef(Model_GroupSalience)[Model_GroupSalience_Terms, c("Estimate","Est.Error","Q2.5","Q97.5"), drop=FALSE], 2)
+
+# P>0 
+Post_Model_GroupSalience <- as.data.frame(fixef(Model_GroupSalience, summary = FALSE))
+PositPost_Model_GroupSalience <- sapply(Post_Model_GroupSalience, function(x) mean(x > 0)) 
+
+
+Renames_GroupSalience <- c(
+  "Intercept" = "Intercept",
+  "SexM" = "Men",
+  "SampleTypePostMFootball" = "PostFootball",
+  "GameTypeBetweenCommunities" = "GameTypeLevel2",
+  "GameTypeTvNT" = "GameTypeLevel3",
+  "Breastfeeding.Method11" = "Breastfeeding",
+  "StandAge" = "Age",
+  "Lot511757" = "Lot2",
+  "Lot511909" = "Lot3",
+  "Lot511938" = "Lot4",
+  "FieldWorkFW2" = "FW2",
+  "SexM:SampleTypePostMFootball" = "MenPostFootball",
+  "SexM:GameTypeBetweenCommunities"= "MenGameTypeLevel2" ,
+  "SexM:GameTypeTvNT"= "MenGameTypeLevel3",
+  "SampleTypePostMFootball:GameTypeBetweenCommunities"= "PostFootball_Level2",
+  "SampleTypePostMFootball:GameTypeTvNT"= "PostFootball_Level3", 
+  "SexM:SampleTypePostMFootball:GameTypeBetweenCommunities"= "MenPostFootball_Level2",
+  "SexM:SampleTypePostMFootball:GameTypeTvNT" = "MenPostFootball_Level3"
+)
+
+
+Names_GroupSalience <- names(PositPost_Model_GroupSalience)
+
+
+Names_GroupSalience[Names_GroupSalience %in% names(Renames_GroupSalience)] <- Renames_GroupSalience[Names_GroupSalience[Names_GroupSalience %in% names(Renames_GroupSalience)]]
+names(PositPost_Model_GroupSalience) <- Names_GroupSalience
+
+# Arrondir les valeurs à 2 décimales
+PositPost_Model_GroupSalience <- round(PositPost_Model_GroupSalience, 2)
+
+
+```
+
+```{r - Posteriors Scenario Model Group Salience ,echo=FALSE,include=FALSE, message=FALSE, warning=FALSE, results="hide"}
+
+
+Posteriors.GroupSalience.Scenarios <- posterior_samples(Model_GroupSalience)
+
+Posteriors.GroupSalience.Scenarios <- Posteriors.GroupSalience.Scenarios %>%
+  mutate(
+    # Scenarios PRE (baseline SampleType)
+    
+    # LEVEL 1 - Men 
+      Men.Pre.Level1 = 
+      b_Intercept +
+      b_SexM,
+      
+      
+      # LEVEL 1 - WOMEN 
+      Women.Pre.Level1 = 
+      b_Intercept, 
+      
+    # LEVEL 2      
+    Men.Pre.Level2 = 
+      b_Intercept +
+      b_SexM +
+      b_GameTypeBetweenCommunities +
+      `b_SexM:GameTypeBetweenCommunities`,
+   
+     # LEVEL 3         
+    Men.Pre.Level3 = 
+      b_Intercept +
+      b_SexM +
+      b_GameTypeTvNT +
+      `b_SexM:GameTypeTvNT`, 
+  
+  
+    
+    # Scenarios POST
+    # LEVEL 1 - MEN
+      Men.Post.Level1 = 
+      b_Intercept +
+      b_SexM +
+      b_SampleTypePostMFootball+
+      `b_SexM:SampleTypePostMFootball`,
+    
+    # LEVEL 1 - WOMEN
+      Women.Post.Level1 = 
+      b_Intercept +
+      b_SampleTypePostMFootball,
+    
+    # LEVEL 2  
+      Men.Post.Level2 = 
+      b_Intercept +
+      b_SexM +
+      b_SampleTypePostMFootball +
+      b_GameTypeBetweenCommunities +
+      `b_SexM:SampleTypePostMFootball` +
+      `b_SexM:GameTypeBetweenCommunities` +
+      `b_SampleTypePostMFootball:GameTypeBetweenCommunities` +
+      `b_SexM:SampleTypePostMFootball:GameTypeBetweenCommunities`,
+   
+     # LEVEL 3
+    Men.Post.Level3 = 
+      b_Intercept +
+      b_SexM +
+      b_SampleTypePostMFootball +
+      b_GameTypeTvNT +
+      `b_SexM:SampleTypePostMFootball` +
+      `b_SexM:GameTypeTvNT` +
+      `b_SampleTypePostMFootball:GameTypeTvNT` +
+      `b_SexM:SampleTypePostMFootball:GameTypeTvNT`,
+
+    
+    # EFFECTS 
+    # LEVEL 1 - MEN
+    Men.CompetitionEffect.Level1 = 
+    Men.Post.Level1 - Men.Pre.Level1, 
+    
+    # LEVEL 1 - WOMEN
+    Women.CompetitionEffect.Level1 = 
+    Women.Post.Level1 - Women.Pre.Level1,     
+    
+    # LEVEL 2
+    Men.CompetitionEffect.Level2 = 
+    Men.Post.Level2 - Men.Pre.Level2, 
+    # LEVEL 3
+    Men.CompetitionEffect.Level3 = 
+    Men.Post.Level3 - Men.Pre.Level3, 
+    
+  )
+
+# Exemple : obtenir b et P(>0) pour Men.CompetitionEffect.Level2
+Group_Posteriors <- Posteriors.GroupSalience.Scenarios %>%
+  summarise(
+    b_Men_Level2 = round(mean(Men.CompetitionEffect.Level2), 2),
+    PP_Men_Level2 = round(mean(Men.CompetitionEffect.Level2 > 0), 2),
+    
+    b_Men_Level3 = round(mean(Men.CompetitionEffect.Level3), 2),
+    PP_Men_Level3 = round(mean(Men.CompetitionEffect.Level3 > 0), 2),
+    
+    b_Men_Level1 = round(mean(Men.CompetitionEffect.Level1), 2),
+    PP_Men_Level1 = round(mean(Men.CompetitionEffect.Level1 > 0), 2),
+    
+    b_Women_Level1 = round(mean(Women.CompetitionEffect.Level1), 2),
+    PP_Women_Level1 = round(mean(Women.CompetitionEffect.Level1 > 0), 2)
+  )
+
+```
+
+```{r - Figure 2 ,echo=FALSE,include=FALSE, message=FALSE, warning=FALSE, results="hide"}
+
+# Positive proportions
+Vars <- c(
+  "Men.CompetitionEffect.Level1", "Women.CompetitionEffect.Level1",
+  "Men.CompetitionEffect.Level2", "Men.CompetitionEffect.Level3"
+)
+# Define a function to calculate the proportion of posterior samples greater than 0
+Prop.Positive <- function(x) mean(x > 0)
+# Apply the function to each variable in Vars using the post-scenario dataset
+# This computes, for each effect, the probability that the effect is strictly positive
+Positive.Props <- sapply(Vars, function(v) Prop.Positive(Posteriors.GroupSalience.Scenarios[[v]]))
+# Round the results to 2 decimal places
+Positive.Props <- round(Positive.Props, 2)
+# Convert the named vector to a list for easier formatting and access later
+Positive.Props <- as.list(Positive.Props)
+
+# 4. Limit x axis
+xlims <- range(Posteriors.GroupSalience.Scenarios[, Vars])
+
+# 5. Function to generate density plots with PP shown in legend
+create_density_plot <- function(data, var_names, colors, labels, title, xlims, pp_vals) {
+
+  # Reshape data to long format
+  df <- data %>%
+    select(all_of(var_names)) %>%
+    pivot_longer(cols = everything(), names_to = "Group", values_to = "Effect") %>%
+    mutate(Group = factor(Group, levels = var_names))
+
+  # Extract density data from base plot
+  base_plot <- ggplot(df, aes(x = Effect, fill = Group)) + geom_density(size = 1)
+  dens_data <- ggplot_build(base_plot)$data[[1]]
+
+  # Assign group names and classify values as positive or negative
+  dens_data <- dens_data %>%
+    mutate(
+      Group = factor(rep(var_names, each = nrow(dens_data) / length(var_names))),
+      PosNeg = ifelse(x > 0, "Positive", "Negative")
+    )
+
+  # Create dynamic labels for the legend with PP values included
+  legend_labels <- sapply(seq_along(var_names), function(i) {
+    sprintf("%s Post-Competition ; P(> 0) = %.2f", labels[i], pp_vals[[var_names[i]]])
+  })
+
+  # Final plot
+  p <- ggplot() +
+    geom_line(data = dens_data, aes(x = x, y = y, group = Group), size = 0.5, color = "black") +
+    geom_ribbon(
+      data = filter(dens_data, PosNeg == "Negative"),
+      aes(x = x, ymin = 0, ymax = y, group = Group),
+      fill = "grey70", alpha = 0.6
+    ) +
+    geom_ribbon(
+      data = filter(dens_data, PosNeg == "Positive"),
+      aes(x = x, ymin = 0, ymax = y, fill = Group, group = Group),
+      alpha = 0.4
+    ) +
+    geom_vline(xintercept = 0, linetype = "dashed") +
+    xlim(xlims) +
+    labs(
+      title = title,
+      x = "Effect of Football Competition",
+      y = "Density",
+      fill = "Group"
+    ) +
+    scale_fill_manual(values = setNames(colors, var_names), labels = legend_labels) +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5))
+  
+  return(p)
+}
+
+# 6. Generate plots for each level
+P.Level1 <- create_density_plot(
+  Posteriors.GroupSalience.Scenarios,
+  var_names = c("Men.CompetitionEffect.Level1", "Women.CompetitionEffect.Level1"),
+  colors = c("#007649", "#593987"),
+  labels = c("Men", "Women"),
+  title = "Intra-Community",
+  xlims = xlims,
+  pp_vals = Positive.Props
+)
+
+P.Level2 <- create_density_plot(
+  Posteriors.GroupSalience.Scenarios,
+  var_names = c("Men.CompetitionEffect.Level2"),
+  colors = c("#007649"),
+  labels = c("Men"),
+  title = "Inter-Community",
+  xlims = xlims,
+  pp_vals = Positive.Props
+)
+
+P.Level3 <- create_density_plot(
+  Posteriors.GroupSalience.Scenarios,
+  var_names = c("Men.CompetitionEffect.Level3"),
+  colors = c("#007649"),
+  labels = c("Men"),
+  title = "Tsimane' VS Non-Tsimane'",
+  xlims = xlims,
+  pp_vals = Positive.Props
+)
+
+# 7. Combine plots
+Plot.Posteriors.GroupSalience <- P.Level1 / P.Level2 / P.Level3 +
+  plot_layout(ncol = 1) +
+  plot_annotation(
+    tag_levels = "A",
+    theme = theme(
+      plot.tag = element_text(face = "bold", size = 14),
+      plot.tag.position = c(0.02, 0.98)
+    )
+  )
+
+
+Model.GroupSalience.PosteriorDistribution.Path <- file.path(PathToRProject, 
+                                 "OTProject.Football.Models", 
+                                 "OTProject.Football.Models.Figures",
+                                 "Model.GroupSalience.Posteriors.png")
+
+
+# 8. Display the final plot
+print(Plot.Posteriors.GroupSalience)
+# 
+# 
+ggsave(filename = Model.GroupSalience.PosteriorDistribution.Path, plot = Plot.Posteriors.GroupSalience, width = 13, height = 8, dpi = 300)
+```
+
+In the extended model including out-group type, intra-community football matches among men were associated with a rise in urinary OT (b = `r Model_GroupSalience_Summary["SexM:SampleTypePostMFootball","Estimate"]`; 95% CrI: `r Model_GroupSalience_Summary["SexM:SampleTypePostMFootball","Q2.5"]` to `r Model_GroupSalience_Summary["SexM:SampleTypePostMFootball","Q97.5"]`; P(\> 0) = `r PositPost_Model_GroupSalience["MenPostFootball"]` ; Supplementary Table 1, Figure 2), supporting a robust effect of competition in familiar, within-community contexts. In contrast, women showed little evidence for any change in oxytocin levels following intra-community competition (b = `r Model_GroupSalience_Summary["SampleTypePostMFootball","Estimate"]`; 95% CrI: `r Model_GroupSalience_Summary["SampleTypePostMFootball","Q2.5"]` to `r Model_GroupSalience_Summary["SampleTypePostMFootball","Q97.5"]`; P(\> 0) = `r PositPost_Model_GroupSalience["PostFootball"]` ; Supplementary Table 1, Figure 2), once again following the sex-differentiated result in 4.1.
+
+When examining out-group contexts, results indicated that the OT response in men was smaller in inter-community matches (b = `r Group_Posteriors$b_Men_Level2`; P(\> 0) = `r Group_Posteriors$PP_Men_Level2`), and with less credibility than for intra-community fixtures. More notably, matches opposing Tsimane' players to non-Tsimane' out-groups yielded a pronounced rise in men's OT (b = `r Group_Posteriors$b_Men_Level3`; P(\> 0) = `r Group_Posteriors$PP_Men_Level3`), similar in magnitude and certainty to intra-community fixtures.
+
+![**Oxytocin response vary according to group salience** - Posterior distributions of the competition effect (Post-football – Pre-football on log urinary oxytocin) from the extended model for three levels of group salience: (A) Intra-community (men and women), (B) Inter-community (men only), and (C) Tsimane vs non-Tsimane (men only). The vertical dashed line at 0 indicates no change. P(\>0) denotes the posterior probability that the effect is positive, directly quantifying support for a rise in oxytocin after engaging in football competition.](images/Model.GroupSalience.Posteriors.png){#fig-Figure2 fig-align="center"}
+
+## **Effect of Physical Activity**
+
+```{r - Figure 3 ,echo=FALSE,include=FALSE, message=FALSE, warning=FALSE, results="hide"}
+
+Path.Football.ModelPhysicalActivity_2 <- file.path(PathToRProject,
+                              "OTProject.Football.Models",
+                              "OTProject.Football.Models",
+                               "Football.ModelPhysicalActivity_2.rds")
+
+Model.Football.PhysicalActivity <- readRDS(Path.Football.ModelPhysicalActivity_2)
+
+
+
+# Getting posteriors 
+Posteriors.Model0.Football.PhysicalActivity <- posterior_samples(Model.Football.PhysicalActivity)
+
+# Creating a dataframe with sex effect
+EffectsDF <- tibble(
+  Sex = rep(c("Female", "Male"), each = nrow(Posteriors.Model0.Football.PhysicalActivity)),
+  Effect = c(
+    Posteriors.Model0.Football.PhysicalActivity$b_StepsPerMinute,
+    Posteriors.Model0.Football.PhysicalActivity$b_StepsPerMinute +
+      Posteriors.Model0.Football.PhysicalActivity$`b_StepsPerMinute:SexM`
+  )
+)
+
+# Define x-axis limits
+xlims <- range(EffectsDF$Effect)
+
+# Compute the proportion of values > 0 for each sex
+PP.Women.StepsPerMinute <- mean(EffectsDF$Effect[EffectsDF$Sex == "Female"] > 0) # Calculate the proportion of posterior samples for females where the effect is greater than 0
+PP.Men.StepsPerMinute <- mean(EffectsDF$Effect[EffectsDF$Sex == "Male"] > 0) # Calculate the proportion of posterior samples for males where the effect is greater than 0
+
+
+# Graph
+# Ensure the order of Sex levels (important for consistent group mapping)
+EffectsDF$Sex <- factor(EffectsDF$Sex, levels = c("Female", "Male"))
+
+# Create a temporary plot to extract density data
+base_plot <- ggplot(EffectsDF, aes(x = Effect, color = Sex, fill = Sex)) +
+  geom_density(size = 1)
+
+# Extract density data from the built ggplot object
+dens_data <- ggplot_build(base_plot)$data[[1]]
+
+# Manually associate group numbers with Sex and flag values above/below zero
+dens_data <- dens_data %>%
+  mutate(
+    Sex = ifelse(group == 1, "Female", "Male"),
+    PosNeg = ifelse(x > 0, "Positive", "Negative")
+  )
+
+# Compute the proportion of posterior samples > 0 for each sex
+PP.Women.StepsPerMinute <- mean(EffectsDF$Effect[EffectsDF$Sex == "Female"] > 0)
+PP.Men.StepsPerMinute <- mean(EffectsDF$Effect[EffectsDF$Sex == "Male"] > 0)
+
+# Final plot
+PhysicalActivity.PosteriorDistribution.Plot <- ggplot() +
+  geom_line(data = dens_data, aes(x = x, y = y, group = Sex), size = 1, color = "black") +
+
+  # Gray area under the curve for values ≤ 0
+  geom_ribbon(
+    data = filter(dens_data, PosNeg == "Negative"),
+    aes(x = x, ymin = 0, ymax = y, group = Sex),
+    fill = "grey70",
+    alpha = 0.6
+  ) +
+
+  # Colored area under the curve for values > 0
+  geom_ribbon(
+    data = filter(dens_data, PosNeg == "Positive"),
+    aes(x = x, ymin = 0, ymax = y, fill = Sex, group = Sex),
+    alpha = 0.4
+  ) +
+
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  xlim(xlims) +
+  labs(
+    x = "Effect of Physical Activity (Steps per minute)",
+    y = "Density",
+    fill = "Sex"
+  ) +
+  scale_fill_manual(
+    values = c("Female" = "#593987", "Male" = "#007649"),
+    labels = c(
+      "Female" = paste0("Women (PP = ", round(PP.Women.StepsPerMinute, 2), ")"),
+      "Male" = paste0("Men (PP = ", round(PP.Men.StepsPerMinute, 2),")")
+    )
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_blank(),  # Remove title
+    plot.title.position = "panel",
+    legend.title = element_text(face = "bold"),
+    plot.margin = margin(10, 10, 10, 10)
+  )
+
+# Display the plot
+PhysicalActivity.PosteriorDistribution.Plot
+
+
+# Extract conditional effects from the fitted Bayesian model
+ConditionalEffectsOutput <- conditional_effects(Model.Football.PhysicalActivity, plot = FALSE)
+
+# Extract the specific conditional effect of StepsPerMinute by Sex
+EffectData <- ConditionalEffectsOutput[["StepsPerMinute:Sex"]]
+
+# Recode the Sex variable: F -> Women, M -> Men
+# Also reorder levels so that Women appears first (on top in the legend)
+EffectData$Sex <- factor(EffectData$Sex, levels = c("F", "M"), labels = c("Women", "Men"))
+
+# Generate the plot with custom colors and updated legend labels
+ConditionalEffect.PhysicalActivity <- ggplot(EffectData, aes(x = StepsPerMinute, y = estimate__, color = Sex, fill = Sex)) +
+  geom_line(size = 1) +  # Plot the conditional effect lines
+  geom_ribbon(aes(ymin = lower__, ymax = upper__), alpha = 0.3, color = NA) +  # Add 95% credible intervals
+
+  # Define custom colors for the lines and shaded ribbons
+  scale_fill_manual(values = c("Women" = "#593987", "Men" = "#007649")) +
+  scale_color_manual(values = c("Women" = "#593987", "Men" = "#007649")) +
+
+  # Set axis labels and legend titles
+  labs(
+    title = "",
+    x = "Physical Activity (Steps per minute)",
+    y = "% Change in Corrected Oxytocin Concentration",
+    color = "Sex",
+    fill = "Sex"
+  ) +
+
+  # Apply a clean minimal theme and customize text appearance
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.title = element_text(face = "bold"),
+    legend.text = element_text(size = 8)
+  )
+
+
+# Display the plot
+ConditionalEffect.PhysicalActivity
+
+
+# MAKING FIGURE WITH PANEL A & B
+
+pA <- PhysicalActivity.PosteriorDistribution.Plot
+pB <- ConditionalEffect.PhysicalActivity
+
+Figure_PhysicalActivityModel <- plot_grid(pA, pB, labels = c("A", "B"), nrow = 1, align = "hv")
+
+
+
+Path_Figure_PhysicalActivityModel <- file.path(PathToRProject, 
+                                 "OTProject.Football.Models", 
+                                 "OTProject.Football.Models.Figures",
+                                 "Figure_PhysicalActivityModel.png")
+
+# 
+ggsave(filename = Path_Figure_PhysicalActivityModel, plot = Figure_PhysicalActivityModel, width = 13, height = 6, dpi = 300)
+```
+
+We found evidence that physical activity positively influenced changes in OT following competitive interaction. Posterior distributions placed high probability mass above zero for both men (P(\>0) = `r round(PP.Men.StepsPerMinute, 2)`) and women (P(\>0) = `r round(PP.Women.StepsPerMinute, 2)`). The estimated main effect of steps per minute on post-football OT was small though (b = `r round(fixef(Model.Football.PhysicalActivity)["StepsPerMinute","Estimate"], 2)`, 95% CrI = `r round(fixef(Model.Football.PhysicalActivity)["StepsPerMinute","Q2.5"], 2)`-`r round(fixef(Model.Football.PhysicalActivity)["StepsPerMinute","Q97.5"], 2)`), indicating a directionally positive but weak association.
+
+![**Small positive effect of physical activity on OT concentration**. (A) **Posterior probability distribution of the effect of physical activity on OT concentration after competitive interaction**. Coloured areas of the distributions (purple = women, green = men) indicate posterior samples that fall on the same side of zero (dotted vertical line) as the posterior mean, while grey areas indicate samples that fall on the opposite side. The proportion of the distribution shown in colour corresponds to the posterior probability (P\>0), which quantifies the probability that there is a directional effect. In this case, it reflects the probability that physical activity is associated with a change in oxytocin concentration following competition. (B) **Conditional effect of physical activity (steps per minute) on the OT concentration following a competitive interaction**. The x-axis represents the level of physical activity, while the y-axis depicts the predicted percent change in corrected oxytocin concentration. Solid lines indicate the estimated conditional effects for men (green) and women (purple) players. Shaded areas around each line correspond to 95% credible intervals, reflecting the uncertainty in the posterior estimates.](images/Figure_PhysicalActivityModel.png){#fig-Figure3}
+
+# **Discussion**
+
+## **Oxytocin’s response to group competition**
+
+Our study investigated whether the human oxytocinergic system responds to group competition, using football matches as a representative example. We hypothesised that this system plays a key role in parochial cooperation. Consequently, we anticipated an increase of endogenous OT concentration following football matches. In support of this hypothesis, the results of the first model revealed a positive effect of competition on OT concentration in men, but not in women (Table 1, Figure 1). This sex-specific pattern indicates that OT release in competitive contexts is not a uniform response to physical activity or social interactions per se, but might be conditioned by how the competitive environment is perceived, particularly in terms of the social incentives and threat dynamics it generates (see 5.3 & 5.4). The OT response to football is in line with observations made in chimpanzees, in which increases in endogenous OT accompany inter-group patrols and are correlated with greater behavioural cohesion[@samuni2017]. In both contexts, group-level competition is inseparable from within-group cooperation and coordination.
+
+As mentioned in the introduction, one mechanism by which OT could facilitate parochial cooperation is by increasing social salience[@bartz2011; @shamay-tsoory2016]. For example, OT increases attention to faces and particularly eye contact in species where the latter conveys social information, such as humans and rhesus macaques[@guastella2008; @averbeck2010]. Furthermore, intranasal injection of OT improves the recognition of emotional expressions and the interpretation of complex social relationships, such as kinship or rivalry dynamics [@domes2007; @rimmele2009]. In intergroup contexts, OT appears to enhance the social salience of the outgroup by increasing sensitivity to threatening and non-threatening signals from that group [@egito2020]. These neuromodulatory functions appear crucial in group competition where it is necessary to quickly categorise allies and adversaries, decode intentions and respond to threats, which requires rapid and effective reading of the social environment. In addition to social salience, behavioural coordination and synchronisation are essential for success in group competition. OT increases sensitivity to human movement and biological motion, which can promote team coordination and the reading of opposing actions in real time, especially in our football competition setting [@perry2010]. Moreover,  in humans OT improves joint performance in coordinated tasks and increases neuronal synchronisation between partners in regions related to social processing[@arueti2013; @mu2016]. In highly interdependent contexts, such as combat simulations or collaborative tasks, OT promotes the alignment of intentions and behaviours, increasing mutual trust and shared attention [@levy2016]. Synchronisation itself appears to lead to an endogenous release of OT, creating a positive feedback loop that strengthens cohesion [@spengler2017].
+
+In sum, OT may facilitate parochial cooperation through several plausible mechanisms, though field studies like ours are not well suited to identify specific mechanisms. Moreover, it is important to emphasise that oxytocin does not exert a fixed behavioural effect, but operates within species-specific social structures. Work in voles has shown that closely related species with different mating systems display distinct patterns of oxytocin receptor distribution, leading to divergent affiliative and bonding behaviours despite sharing a homologous endocrine system [@insel]. Conversely, recent work in canids suggests that similar outward behaviours in competitive intergroup contexts may be supported by different endocrine profiles depending on socioecological conditions [@wirobski2023]. Furthermore, endogenous OT levels respond to male-female sexual consortships in chacma baboons (*Papio ursinus*) [@moscovice2012], but only to female-female (not male-female) sexual interactions among bonobos (*Pan paniscus*) [@moscovice2019]. More broadly, similar behaviours can emerge from different endocrine pathways across taxa[@rosvall2022]. Hence,  further comparative and integrative work is needed to clarify how oxytocin contributes to parochial cooperation under different socioecological conditions.
+
+## **Physical activity contributes but does not fully account for men’s post-match OT rise**
+
+Analyses incorporating physical activity indicated that average steps per minute were positively associated with post-football OT concentration for both sexes. Posterior evidence favoured a positive slope in both men and women, although the average effect on the log scale appeared modest. This suggests that physical activity contributes to the increase of OT concentration after group competition, but that it alone cannot explain the entire post-match effect observed in men.
+
+If physical activity were the principal driver of the post-match increase, a similarly positive activity–OT association in men and women should have produced comparable pre- to post-match responses in the competition model; instead, only men showed a rise. In comparable intra-community fixtures, women also exhibited a slightly higher mean step rate than men (50.79 vs. 48.99 steps/min), suggesting that a stronger OT response might have been expected in women rather than in men based solely on physical activity. Moreover, among men, inter-community matches were on average associated with slightly higher activity than intra-community matches, yet the OT response was stronger for intra-community ones.
+
+Taken together, the evidence indicates that physical activity positively contributes to OT variation, yet the competitive social context remains decisive. The male post-match increase cannot be attributed to physical activity *per se* and aligns with the view that the oxytocinergic system reacts to cooperation and/ or competition cues during football fixtures.
+
+## **Oxytocin’s response to group salience**
+
+The observed differences in OT responses across the three levels of group salience among male participants suggest nuanced neuroendocrine adaptations to varying competitive contexts. Men displayed the strongest increase in OT concentration after engaging in intra-community matches (Figure 2.A), and in Tsimane’ VS non-Tsimane’ matches (Figure 2.C). Conversely, they displayed the weakest response after playing against players from a neighbouring community (Figure 2.B).
+
+In intra-community matches, opponents were familiar rivals within the same community, and team selections tended to fall along extended family lines. Among the Tsimane’, these extended-family clusters form relatively cohesive cooperative units that share resources but also compete over land, labour and social status amongst each other. As a result, intra-community fixtures effectively pitted neighbouring kin-based coalitions against one another, which we view as the closest analogue in this setting to the ‘nasty neighbour effect’ described as a competitive dynamic documented in several species including humans, where rivalry and hostility are more pronounced toward familiar individuals due to frequent and direct competition, particularly regarding social status [@romano2024]. More generally, humans routinely navigate nested and intersecting group identities, allowing “neighbour” competition to arise between subgroups within a shared community rather than only between clearly bounded groups.Among Tsimane’ men, status competition is closely linked to mating success and social prestige, often achieved through public displays of competence and dominance [@vonrueden2008; @vonrueden2011]. Therefore, football matches could be an opportunity, among others, to display status to other community members, in addition to representing direct competition over valuable resources (the prizes of the football tournament). In this sense, OT reactivity in intra-community matches may reflect both cooperation within familiar teams and competition with rival teams, i.e parochial cooperation.
+
+Conversely, Tsimane’ VS non-Tsimane’ matches correspond to competition against complete outsiders, from a different ethnic group, that might trigger intensified inter-group rivalries. According to theories of parochial cooperation and in-group favouritism [@bernhard2006; @romano2021], competition against clearly defined outsiders is likely to strengthen intra-group cohesion and cooperation, triggering a robust OT response that supports coordinated group defence and competition against external threats[@dedreu2012]. In the context of the Tsimane’, competition with non Tsimane’ players is likely to promote a unified and strong group-level response given their perceived discrimination and overall rather negative experiences with outsiders.
+
+Inter-community matches, which involved competitors from neighbouring Tsimane’ communities who are neither regular competitors nor complete strangers (co-ethnics with occasional kin ties and limited day-to-day interactions), produced the weakest OT response. This intermediate response suggests that the competitive imperative at this level may be perceived as less critical for immediate social status or direct group defence, even though the material resources at stake were the same as in the other matches.
+
+```{r -  Supplementary Baseline Model Summary Figure,echo=FALSE,include=FALSE, message=FALSE, warning=FALSE, results="hide"}
+PathModel_Supplementary <- file.path(PathToRProject,
+                              "OTProject.Football.Models",
+                              "OTProject.Football.Models",
+                               "Football.Model.Supplementary1.rds")
+
+
+Model_Supplementary <- readRDS(PathModel_Supplementary)
+
+
+# EXTRACTING VALUES FOR SUMMARY 
+
+Model_Supplementary_Terms <- c("Intercept",
+                             "SexM",
+                             "StatusVisitors",
+                             "GameTypeBetweenCommunities",
+                             "GameTypeTvNT",
+                             "Breastfeeding.Method11",
+                             "StandAge",
+                             "Lot511757",
+                             "Lot511909",
+                             "Lot511938",
+                             "FieldWorkFW2",
+                             "SexM:StatusVisitors",
+                             "SexM:GameTypeBetweenCommunities",
+                             "SexM:GameTypeTvNT",
+                             "StatusVisitors:GameTypeBetweenCommunities",
+                             "StatusVisitors:GameTypeTvNT",
+                             "SexM:StatusVisitors:GameTypeBetweenCommunities",
+                             "SexM:StatusVisitors:GameTypeTvNT")
+
+################################################################################################ 
+# Extracting Model Competition Summary data 
+################################################################################################ 
+
+Model_Supplementary_Summary <- round(fixef(Model_Supplementary)[Model_Supplementary_Terms, c("Estimate","Est.Error","Q2.5","Q97.5"), drop=FALSE], 2)
+Model_Supplementary_Summary
+```
+
+Another possible explanation for this intermediate OT response might have been the visiting status of footballers from nearby communities. Such status might imply greater physical activity as well as social interaction and coordination prior to matches and, therefore, elevated pre-game OT levels. To address this potential alternative explanation, we conducted a supplementary analysis comparing pre-football OT levels between visiting and local players (Supplementary - Figure 1). Results showed no evidence for any pre-football OT level difference between these two groups (b = `r Model_Supplementary_Summary["StatusVisitors","Estimate"]`; 95 % CrI= `r Model_Supplementary_Summary["StatusVisitors","Q2.5"]` - `r Model_Supplementary_Summary["StatusVisitors","Q97.5"]`) suggesting that the observed intermediate OT responses are unlikely to be driven by systematically elevated baseline levels.
+
+## **Sex difference in oxytocin’s response to group competition**
+
+In contrast to men, women did not exhibit an increase in OT concentration following football competition. On the surface, this result is consistent with the "male warrior hypothesis", which posits that males are more sensitive to group-level competition, and is supported by evidence from social psychology and the fact that males engage more in between-group competition than females across mammals [@vanvugt2007a; @smith2022]. However, another plausible explanation is that Tsimane’ women started from higher baseline OT levels, leading to a ceiling effect. Indeed, in our data, men tended to have lower baseline than women (b = `r Model_Competition_Summary["SexM:SampleTypePostMFootball","Estimate"]`; 95 % CrI= `r Model_Competition_Summary["SexM:SampleTypePostMFootball","Q2.5"]` - `r Model_Competition_Summary["SexM:SampleTypePostMFootball","Q97.5"]`; P(\> 0) = `r sprintf("%.2f",PositPost_Model_Competition["b_SexM:SampleTypePostMFootball"])`), even after adjusting for breastfeeding. A higher baseline may reduce the scope for detectable pre–post changes in peripheral OT, even if central oxytocinergic activity is modulated by competition.
+
+More broadly, experimental and comparative work suggests that oxytocin operates within a sex-differentiated neuroendocrine context. Studies in humans report sex-specific behavioural effects of intranasal OT, with men showing enhanced sensitivity to competitive and status-related cues, whereas in women OT more reliably amplifies the recognition of kinship and affiliative bonds [@fischer-shofty2013; @shamay-tsoory2013]. In addition, oestrogen and progesterone modulate OT receptor expression and neuronal responsiveness to OT in limbic and hypothalamic networks, leading to phase-dependent variation in OT sensitivity across the menstrual cycle[@young1998; @acevedo-rodriguez2015; @gimpl2001,@ivell1999; @caldwell2018; @engel2019]. Such findings imply that social cues that trigger OT release, and the functions of that release, may differ between sexes.
+
+These considerations are consistent with ethnographic observations among the Tsimane’. Women are deeply involved in food production and processing, the maintenance of social ties and domestic care, and rivalries are often expressed in relational rather than overtly coalitional forms. Field studies among the Tsimane’ reveal that women compete through gossip, reputational attacks and social exclusion that can restrict access to mutual aid, emotional support and food-sharing networks [@rucas2006; @rucas2012] and women’s status has measurable fitness consequences [@alami2020]. It is therefore plausible that competitive contexts most relevant to women’s oxytocinergic responses differ from the male-dominated, physically confrontational setting of football matches. Although women do participate in football matches, they do so less frequently, and football is often more strongly associated with male sociality, public competition, and reputation [@trumble2012; @caldwell2016]. As such, this context may be more socially salient for men than for women, potentially amplifying endocrine responses in men without necessarily implying a general sex difference in responses to intergroup competition.
+
+Evidence from non-human primates further suggests that sex differences in oxytocinergic responses to intergroup competition are not fixed, but contingent on socioecology and sex roles. For example, in Taï Forest chimpanzees, where both males and females participate actively in territorial defence, individuals of both sexes show increased OT following intergroup encounters [@samuni2017]. Future work in other populations and contexts, and with competitive settings more typical of women’s everyday rivalries, will be needed to clarify the mechanisms underlying these sex differences.
+
+## **Limitations**
+
+It is important to note that the naturalistic paradigm of team sports used in this study is a context that intrinsically combines cooperation within a team and competition between teams. These two aspects cannot be dissociated. Therefore, the patterns we observe concern the responsiveness of oxytocin to this joint context rather than to these isolated processes. The sample size for inter-community contexts is modest, which results in relatively wide credibility intervals for certain contrasts. Nevertheless, the use of Bayesian rather than frequentist models allows us to present our results in probabilistic terms, and thus to maintain the necessary caution in interpretation, without disregarding observations and tendencies. Furthermore, the dual pathway of OT release (central and peripheral) means that its spectrum of action extends from behavioural modulation to physiological function modulation. Although it has been shown that central and peripheral OT concentrations respond similarly in stressful situations, it is important to note that peripheral OT measurement remains only an indicator of central OT [@valstad2017]. Therefore, we cannot rule out the influence of physiological demands on measured OT levels, although controlling for known physiological parameters such as physical activity or breastfeeding should improve the reliability of our measurements. Finally, our data comes from a single small-scale population with its own unique intra- and inter-community relationships. Consequently, any extrapolation to other human groups or species must be cautious and based on explicit comparative studies.
+
+# **Conclusion & Perspectives**
+
+Our results provide unique field evidence that endogenous oxytocin responds to group-level competition in humans. In Tsimane’ men, OT levels increased selectively in contexts of high social importance; whether competing against familiar group rivals or ethnically distinct strangers; whereas women showed no such comparable hormonal changes. This sex-specific response suggests that OT may play a key role in coordinating competitive behaviour in groups, particularly when coalition dynamics and social threat are most prominent and recurrent.
+
+These results have potential implications for the evolution of social neuroendocrinology, but it remains an open question whether similar OT responses occur in other human populations or in other species. In species characterised by strong inter-group competition, particularly in the sex that most often engages in inter-group aggression; typically males in many mammals (but females in some taxa such as hyenas)[@smith2022]; one might expect comparable patterns, although this is likely to depend strongly on socioecological context [@samuni2017; @cheng2025]. The role of OT in mobilising social cohesion, vigilance and coordination during group conflict may therefore represent a more general feature of mammalian sociality[@triki2022; @putnam2018], but this hypothesis requires explicit comparative tests across taxa, with the caveat of potential phylogenetic diversity in endocrine mechanisms underlying the same phenotypes [@rosvall2022]
+
+In addition, interactions between OT and sex hormones (testosterone, oestrogen, progesterone), which have been shown to influence threat reactivity and affiliative behaviour [@cherki2024], may shape gendered patterns in social neuroendocrine responses. An integrative study of OT and its dynamics with other hormones could shed light on this matter.
+
+# **Acknowledgements**
+
+We thank the Tsimane’ participants and communities for their participation and without whom this study would not have been possible. We express our sincere gratitude to our research assistants ; Agustina Bani Cuata, Maria Dyersin Lero Cari, and Alberto Vie Tayo, for their dedicated fieldwork and logistical support. This work benefited from the authorisation of the Tsimane’ Government. We are also grateful to Catherine Crockford for her insightful comments on earlier drafts, and to the three anonymous reviewers for their helpful feedback during the revision process.
+
+# References

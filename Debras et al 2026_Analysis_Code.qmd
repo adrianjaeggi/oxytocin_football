@@ -1,0 +1,1056 @@
+---
+title: "Models - Paper Football"
+format: html
+editor: visual
+---
+
+## Packages and Libraries
+
+Uploading the libraries
+
+```{r - Libraries, echo=FALSE,include=FALSE, message=FALSE, warning=FALSE, results="hide"}
+
+library(kableExtra)
+library(dplyr)
+library(brms)
+library(ggplot2)
+library(broom)
+library(knitr)
+library(webshot)
+library(htmltools)
+library(scales) 
+library(patchwork)
+library(loo) 
+library(mice)
+library(rlang)
+library(tidyr)
+library(forcats) 
+library(psych)
+library(tidyverse)
+library(gridExtra)
+library(ggtext)
+library(readr)      
+library(tidybayes)
+library(posterior)
+library(tibble)
+library(ggpubr)
+library(patchwork)
+library(cowplot)
+library(stringr)
+
+```
+
+## Uploading Data Frames
+
+```{r - Uploading data frames, echo=FALSE,include=FALSE, message=FALSE, warning=FALSE, results="hide"}
+
+PathToRProject <- "/Volumes/Data-1/Institute/Human_Ecology/cdebra/Work/OTProject.Chapter2/"
+
+DF_Models <- read.csv(file.path(PathToRProject,
+                                      "OTProject.Football.Models",
+                                      "OTProject.Football.Models.Data",
+                                      "Data.Models.Football.csv"))
+```
+
+## Factorising variables
+
+```{r - Factorising Variables}
+
+DF_Models <- DF_Models %>%
+  mutate(
+    Breastfeeding.Method1 = round(as.numeric(Breastfeeding.Method1), 1) %>% as.factor(),
+    SampleType = as.factor(SampleType),
+    Sex = as.factor(Sex),
+    GameType = as.factor(GameType),
+    Lot = as.factor(Lot),
+    FieldWork = as.factor(FieldWork),
+    Status = as.factor(Status),
+  )
+
+# Relevel the factors 
+DF_Models <- DF_Models %>% 
+  mutate(
+    # SampleType
+    SampleType = fct_relevel(
+      SampleType,
+      "BL", "Pre-Football", "Post-Football"
+    ),
+    # Sex : Reference = "F" (Women)
+    Sex = relevel(
+      Sex,                      
+      ref = "F"
+    ), 
+    # GameType (Reference = TvT : Intracommunity) 
+    GameType = fct_relevel(
+      GameType,
+      "TvT", "BetweenCommunities", "TvNT"
+    )
+  )
+```
+
+## Main Manuscript Models
+
+### A) Model Competition
+
+```{r - Model Competition with random slopes}
+
+Formula.Model_RandomSlopesTeam <- bf(
+  CorrectedOT | cens(OT.Censored) ~  
+    Sex * SampleType + 
+    Breastfeeding.Method1 +
+    StandAge +
+    FieldWork +
+    Lot +
+    # random effects
+    (1 + SampleType | PID) +   
+    (1 | TeamName) +           
+    (1 | RIA) + 
+    (1 | Extraction)
+)
+
+ModelCompetition_RandomSlopes_Teams <- brm( Formula.Model_RandomSlopesTeam,
+  data    = DF_Models,
+  family  = lognormal(),
+  control = list(adapt_delta = 0.99),
+  prior   = c(
+    prior(normal(0, 1), class = "Intercept"),
+    prior(normal(0, 1), class = "b"),
+    prior(exponential(1), class = "sd", group = "PID"),
+    prior(exponential(1), class = "sd", group = "TeamName"),
+    prior(exponential(1), class = "sd", group = "RIA"),
+    prior(exponential(1), class = "sd", group = "Extraction")
+  )
+)
+
+summary(ModelCompetition_RandomSlopes_Teams)
+pp_check(ModelCompetition_RandomSlopes_Teams, ndraws = 100)
+
+```
+
+### B) Model Group Salience
+
+```{r - Model Group Salience with random slopes}
+
+Formula.ModelGroupSalience_RandomSlopes_Teams <- bf(CorrectedOT | cens(OT.Censored) ~  
+  Sex*SampleType*GameType +
+  Breastfeeding.Method1 +
+  StandAge +
+  Lot +
+  FieldWork +
+    # random effects
+    (1 + SampleType | PID) +   
+    (1 | TeamName) +           
+    (1 | RIA) + 
+    (1 | Extraction)
+)
+  
+  
+Model.GroupSalience_RandomSlopes_Teams <- brm(
+  formula = Formula.ModelGroupSalience_RandomSlopes_Teams,
+  data = DF_Models,
+  family = lognormal(),
+  control = list(adapt_delta = 0.99),
+  prior = c(
+    prior(normal(0, 1), class = "Intercept"),
+    prior(normal(0, 1), class = "b"),
+    prior(exponential(1), class = "sd", group = "PID"),
+    prior(exponential(1), class = "sd", group = "TeamName"),
+    prior(exponential(1), class = "sd", group = "RIA"),
+    prior(exponential(1), class = "sd", group = "Extraction")
+  )
+)
+
+summary(Model.GroupSalience_RandomSlopes_Teams)
+pp_check(Model.GroupSalience_RandomSlopes_Teams, ndraws = 100)
+
+
+
+
+```
+
+### C) Model Physical Activity
+
+```{r}
+
+### MODEL PHYSICAL ACTIVITY 
+Model.Football.PhysicalActivity <- brm(
+  OT_PostFootball| cens(OT.Censored)  ~ StepsPerMinute * Sex +
+                     OT_PreFootball +
+                     Breastfeeding.Method1 +
+                     StandAge +
+                     Lot +
+                    (1 | RIA) + (1 | Extraction) ,
+  data    = DF.PhysicalActivity,
+  family  = lognormal(), 
+  control = list(adapt_delta = 0.99),
+  prior = c(
+    prior(normal(0, 1), class = "Intercept"),
+  prior(normal(0, 1), class = "b")
+  )
+)
+
+summary(Model.Football.PhysicalActivity)
+
+```
+
+## Supplementary Materials Models
+
+### A) Checking if Visitors have different baseline than locals
+
+```{r}
+
+# Keeping Pre-Football Samples 
+Data.PreFootball <- DF_Models %>%
+  filter(SampleType == "Pre-Football")
+
+# Supplementary Model 1 - Formula 
+Formula.PreFootball <- bf(
+  CorrectedOT | cens(OT.Censored) ~ 
+    Sex * Status * GameType  +  
+    Breastfeeding.Method1 +
+    StandAge +
+    Lot +
+    FieldWork +
+    (1 | RIA) + (1 | Extraction) + (1 | PID)
+)
+
+# Supplementary Model 1 
+Supplementary_Model1 <- brm(
+  formula = Formula.PreFootball,
+  data = Data.PreFootball,
+  family = lognormal(),
+  control = list(adapt_delta = 0.999, max_treedepth = 15),
+  prior = c(
+    prior(normal(0, 1), class = "Intercept"),
+    prior(normal(0, 1), class = "b"),
+    prior(exponential(1), class = "sd", group = "PID"),
+    prior(exponential(1), class = "sd", group = "RIA"),
+    prior(exponential(1), class = "sd", group = "Extraction")
+  ),
+  chains = 4, iter = 6000, warmup = 2000, cores = 4
+)
+summary(Supplementary_Model1)
+
+```
+
+## Figures
+
+### Figure 1
+
+```{r - Figure 1 }
+################################################################################################ 
+# Loading the Model Competition
+################################################################################################ 
+Path_ModelCompetition_RandomSlopes_Teams <- file.path(PathToRProject, 
+                              "OTProject.Football.Models",
+                              "OTProject.Football.Models",
+                               "Football.ModelCompetition_RandomSlopes_Teams.rds")
+
+
+Model_Competition <- readRDS(Path_ModelCompetition_RandomSlopes_Teams)
+
+
+################################################################################################ 
+# Extracting Model Competition's terms 
+################################################################################################ 
+Model_Competition_Terms <- c("Intercept",
+                             "SexM",
+                             "SampleTypePostMFootball",
+                             "Breastfeeding.Method11",
+                             "StandAge",
+                             "FieldWorkFW2",
+                             "Lot511757",
+                             "Lot511909",
+                             "Lot511938",
+                             "SexM:SampleTypePostMFootball")
+
+################################################################################################ 
+# Extracting Model Competition Summary data 
+################################################################################################ 
+
+Model_Competition_Summary <- round(fixef(Model_Competition)[Model_Competition_Terms, c("Estimate","Est.Error","Q2.5","Q97.5"), drop=FALSE], 2)
+Model_Competition_Summary
+
+# P>0 
+Post_Model_Competition <- as.data.frame(fixef(Model_Competition, summary = FALSE))
+PositPost_Model_Competition <- sapply(Post_Model_Competition, function(x) mean(x > 0)) 
+
+
+Post_Model_Competition <- posterior_samples(Model_Competition)
+PositPost_Model_Competition <- sapply(Post_Model_Competition, function(x) mean(x > 0)) 
+
+sprintf("%.2f",PositPost_Model_Competition["b_SexM:SampleTypePostMFootball"])
+###############################################################################################
+# Extracting Model Competition Summary data 
+###############################################################################################
+
+ModelCompetition_Posteriors <- posterior_samples(Model_Competition)
+
+
+# Compute posteriors for men and women
+Function.ComputePosteriors <- function(Intercept, EffectMen = 0, EffectPostFoot = 0, InteractionMenPostFoot = 0) {
+  pre_foot <- Intercept + EffectMen
+  post_foot <- Intercept + EffectMen + EffectPostFoot + InteractionMenPostFoot
+  effect <- post_foot - pre_foot
+  return(data.frame(FootballEffect = effect))
+}
+
+# Extract coefficients
+Intercept <- ModelCompetition_Posteriors$b_Intercept
+EffectMen <- ModelCompetition_Posteriors$b_SexM
+EffectPostFoot <- ModelCompetition_Posteriors$b_SampleTypePostMFootball
+InteractionMenPostFoot <- ModelCompetition_Posteriors$`b_SexM:SampleTypePostMFootball`
+
+# Compute effects for men and women
+Model_CompetitionEffect.Men <- Function.ComputePosteriors(Intercept, EffectMen, EffectPostFoot, InteractionMenPostFoot)
+Model_CompetitionEffect.Women <- Function.ComputePosteriors(Intercept, 0, EffectPostFoot, 0)
+
+# Compute positive posteriors
+Function.ComputePositivePosteriors <- function(effect_df, threshold = 0) {
+  return(round(sum(effect_df$FootballEffect > threshold) / nrow(effect_df), 2))
+}
+
+# Positive posteriors for men
+PositivePosteriors.Men <- Function.ComputePositivePosteriors(Model_CompetitionEffect.Men)
+# Positive posteriors for women
+PositivePosteriors.Women <- Function.ComputePositivePosteriors(Model_CompetitionEffect.Women)
+
+
+
+###############################################################################################
+
+
+# Function to  add the Group column
+Function.RenameAndLabel <- function(DF, GroupName) {
+  DF <- DF %>%
+    mutate(Group = GroupName)
+  return(DF)
+}
+
+Model_CompetitionEffect.Men <- Function.RenameAndLabel(Model_CompetitionEffect.Men, "Men")
+Model_CompetitionEffect.Women <- Function.RenameAndLabel(Model_CompetitionEffect.Women, "Women")
+
+# Combine both datasets (Model_CompetitionEffect.Men + Model_CompetitionEffect.Women -> CombinedEffect)
+CombinedEffect <- bind_rows(Model_CompetitionEffect.Men, Model_CompetitionEffect.Women)
+
+# Function to compute density and extract the maximum density value
+Function.ComputeDensity <- function(DF) {
+  DensityData <- density(DF$FootballEffect)
+  return(list(
+    max_effect = DensityData$x[which.max(DensityData$y)],
+    max_density = max(DensityData$y)
+  ))
+}
+
+# Compute density values for men and women
+DensityMen <- Function.ComputeDensity(Model_CompetitionEffect.Men)
+DensityWomen <- Function.ComputeDensity(Model_CompetitionEffect.Women)
+
+
+###############################################################################################
+# FIGURE A 
+###############################################################################################
+
+# 1. Calculate density by group (Men and Women)
+DensityData_ModelCompetition <- CombinedEffect %>%
+  group_by(Group) %>%
+  do({
+    d <- density(.$FootballEffect, na.rm = TRUE)
+    data.frame(
+      EffectValue   = d$x,   #
+      EffectDensity = d$y,   
+      Group         = unique(.$Group)
+    )
+  }) %>%
+  ungroup() %>%
+  mutate(PosNeg = ifelse(EffectValue < 0, "Negative", "Positive"))
+
+
+# 2. Make the Figure 1.A
+MakeFigure1A <- function(density_df,
+                         x_label = "Effect of Football competition on Oxytocin",
+                         y_label = "Density",
+                         group_colors = c("#007649", "#593987"),
+                         neg_fill = "grey70",
+                         alpha_fill = 0.6,
+                         line_size = 0.4,
+                         vline_linetype = "dotted",
+                         legend_position = c(1.3, 0.8)) {
+  
+  ggplot() +
+    geom_line(
+      data = density_df,
+      aes(x = EffectValue, y = EffectDensity, group = Group),
+      size = line_size, color = "black"
+    ) +
+    
+    # <0 in grey
+    geom_ribbon(
+      data = dplyr::filter(density_df, PosNeg == "Negative"),
+      aes(x = EffectValue, ymin = 0, ymax = EffectDensity, group = Group),
+      fill = neg_fill, alpha = alpha_fill
+    ) +
+    
+    # >0 coloured by group
+    geom_ribbon(
+      data = dplyr::filter(density_df, PosNeg == "Positive"),
+      aes(x = EffectValue, ymin = 0, ymax = EffectDensity, fill = Group, group = Group),
+      alpha = alpha_fill
+    ) +
+    
+    # vertical line in 0
+    geom_vline(xintercept = 0, linetype = vline_linetype, color = "black") +
+    
+    labs(
+      title = "",
+      x = x_label,
+      y = y_label
+    ) +
+    
+    scale_fill_manual(
+      values = group_colors,
+      guide = guide_legend(override.aes = list(shape = 16, size = 3))
+    ) +
+    
+    theme(
+      text = element_text(color = "black"),
+      plot.background = element_rect(fill = "transparent", color = NA),
+      panel.background = element_rect(fill = "transparent", color = NA),
+      panel.grid.major = element_line(color = "azure4", size = 0.05),
+      panel.grid.minor = element_line(color = "azure4", size = 0.05),
+      plot.title = element_text(size = 14, face = "bold"),
+      axis.title.x = element_text(size = 12, margin = margin(t = 10)),
+      axis.title = element_text(size = 12),
+      axis.text = element_text(size = 10),
+      legend.background = element_rect(fill = "transparent", color = NA),
+      legend.text = element_text(color = "black", size = 9),
+      legend.title = element_text(face = "bold"),
+      legend.position = legend_position,
+      legend.key = element_blank()
+    )
+}
+
+Figure1.A <- MakeFigure1A(DensityData_ModelCompetition)
+
+
+###############################################################################################
+# FIGURE 1.B
+###############################################################################################
+
+# 1) Conditional effects (Sex x SampleType)
+ce <- conditional_effects(Model_Competition, effects = "Sex:SampleType")$`Sex:SampleType` %>%
+  mutate(
+    SampleType = factor(SampleType, levels = c("Pre-Football", "Post-Football")),
+    SexLab      = factor(Sex, levels = c("F", "M"), labels = c("Women", "Men")),
+    Group       = factor(paste(Sex, SampleType, sep = "_"),
+                         levels = c("M_Pre-Football","M_Post-Football","F_Pre-Football","F_Post-Football"))
+  )
+
+# 2) Raw data (same labels/groups)
+raw_df <- Model_Competition$data %>%
+  filter(!is.na(CorrectedOT), !is.na(Sex), !is.na(SampleType)) %>%
+  mutate(
+    SampleType = factor(SampleType, levels = c("Pre-Football", "Post-Football")),
+    SexLab      = factor(Sex, levels = c("F", "M"), labels = c("Women", "Men")),
+    Group       = factor(paste(Sex, SampleType, sep = "_"), levels = levels(ce$Group))
+  )
+
+# 3) Aesthetics (color/shape + legend labels)
+cols   <- c("M_Pre-Football"=scales::alpha("#007649",0.3), "M_Post-Football"=scales::alpha("#007649",0.6),
+            "F_Pre-Football"=scales::alpha("#593987",0.3), "F_Post-Football"=scales::alpha("#593987",0.6))
+shapes <- c("M_Pre-Football"=16, "M_Post-Football"=15, "F_Pre-Football"=16, "F_Post-Football"=15)
+labs   <- c("M_Pre-Football"="Men - Pre-competition", "M_Post-Football"="Men - Post-competition",
+            "F_Pre-Football"="Women - Pre-competition", "F_Post-Football"="Women - Post-competition")
+
+# 4) Plot
+Figure1.B_PR <- ggplot(ce, aes(SexLab, estimate__, color = Group, shape = Group)) +
+  geom_point(aes(group = SampleType), position = position_dodge(0.4), size = 4) +
+  geom_errorbar(aes(ymin = lower__, ymax = upper__, group = SampleType),
+                position = position_dodge(0.4), width = 0.2) +
+  geom_point(data = raw_df, aes(SexLab, CorrectedOT, color = Group, shape = Group),
+             inherit.aes = FALSE, alpha = 0.40, size = 1.1,
+             position = position_jitterdodge(jitter.width = 0.10, dodge.width = 0.4)) +
+  scale_color_manual("Condition", values = cols, labels = labs) +
+  scale_shape_manual("Condition", values = shapes, labels = labs) +
+  coord_cartesian(ylim = c(0, 1.6)) +
+  labs(x = "Sex", y = "Corrected OT (pg/mL)") +
+  theme_minimal()
+
+Figure1.B_PR
+
+
+ConditionalEffect_ModelCompetiton_List <- conditional_effects(Model_Competition, effects = "Sex:SampleType")
+
+# Data.frame of  Sex:SampleType effects 
+DF_CondEffPlot_ModelCompetition <- ConditionalEffect_ModelCompetiton_List$`Sex:SampleType` %>%
+  mutate(
+    # order levels
+    SampleType = factor(SampleType, levels = c("Pre-Football", "Post-Football")),
+    # group sex 
+    Group = paste(Sex, SampleType, sep = "_"),
+    SexLab = factor(Sex, levels = c("F", "M"), labels = c("Women", "Men"))
+  )
+
+#  brut data filtration
+raw_df <- subset(Model_Competition$data,
+                 !is.na(CorrectedOT) & !is.na(Sex) & !is.na(SampleType)) %>%
+  mutate(
+    SampleType = factor(SampleType, levels = c("Pre-Football", "Post-Football")),
+    Group = paste(Sex, SampleType, sep = "_"),
+    SexLab = factor(Sex, levels = c("F", "M"), labels = c("Women", "Men"))
+  )
+
+# Choosing the colours 
+ColourMapping <- setNames(
+  c(scales::alpha("#007649", 0.3),  # M_Pre
+    scales::alpha("#007649", 0.6),  # M_Post
+    scales::alpha("#593987", 0.3),  # F_Pre
+    scales::alpha("#593987", 0.6)), # F_Post
+  c("M_Pre-Football", "M_Post-Football", "F_Pre-Football", "F_Post-Football")
+)
+
+LegendLabels <- setNames(
+  c("Men - Pre-competition", "Men - Post-competition",
+    "Women - Pre-competition", "Women - Post-competition"),
+  names(ColourMapping)
+)
+
+# Shapes  : circles for Pre-football ; Squares for post 
+ShapeMapping <- setNames(
+  c(16, 15, 16, 15),  # M_Pre, M_Post, F_Pre, F_Post
+  c("M_Pre-Football", "M_Post-Football", "F_Pre-Football", "F_Post-Football")
+)
+
+# Legend order 
+DF_CondEffPlot_ModelCompetition$Group  <- factor(DF_CondEffPlot_ModelCompetition$Group,  levels = names(ColourMapping))
+raw_df$Group <- factor(raw_df$Group, levels = names(ColourMapping))
+
+# Figure 1.B (Post Review)
+Figure1.B_PR <- ggplot(DF_CondEffPlot_ModelCompetition, aes(x = SexLab, y = estimate__, color = Group, shape = Group)) +
+  geom_point(aes(group = SampleType), position = position_dodge(width = 0.4), size = 4) +
+  geom_errorbar(aes(ymin = lower__, ymax = upper__, group = SampleType),
+                width = 0.2, position = position_dodge(width = 0.4)) +
+  geom_point(data = raw_df,
+             aes(x = SexLab, y = CorrectedOT, color = Group, shape = Group),
+             inherit.aes = FALSE,
+             alpha = 0.40, size = 1.1,
+             position = position_jitterdodge(jitter.width = 0.10, dodge.width = 0.4)) +
+  scale_color_manual(name = "Condition", values = ColourMapping, labels = LegendLabels) +
+  scale_shape_manual(name = "Condition", values = ShapeMapping, labels = LegendLabels) +
+  coord_cartesian(ylim = c(0, 1.6)) +
+  labs(
+    title = "",
+    x = "Sex",
+    y = "Corrected OT (pg/mL)"
+  ) +
+
+  theme_minimal() +
+  theme(
+    panel.background = element_rect(fill = "transparent", color = NA),
+    plot.background  = element_rect(fill = "transparent", color = NA),
+    legend.position  = "right",
+    plot.title       = element_text(hjust = 0.5, face = "bold"),
+    legend.title     = element_text(face = "bold")
+  )
+
+Figure1.B_PR
+
+
+###############################################################################################
+# Combining 1.A + 1.B
+###############################################################################################
+pp <- c(Men = PositivePosteriors.Men,
+        Women = PositivePosteriors.Women)
+
+cols <- c(Men = "#007649",
+          Women = "#593987")
+
+Figure1.A <- Figure1.A +
+  scale_fill_manual(
+    values = cols,
+    breaks = names(cols),
+    labels = c(
+      sprintf("Men (P> 0) = %.2f)", pp["Men"]),
+      sprintf("Women (P> 0) = %.2f)", pp["Women"])
+    )
+  ) +
+  labs(fill = "Group") +
+  theme(
+    legend.position = "right",
+    legend.margin = margin(t = 3, b = 3),
+    legend.key.size = unit(0.5, "cm"),
+    legend.box.background = element_blank(),
+    legend.key = element_blank()
+  )
+
+
+# Add titles "A" and "B" to the subfigures
+Figure1.A <- Figure1.A + ggtitle("A") + theme(plot.title = element_text(hjust = 0, face = "bold", size = 14))
+Figure1.B_PR <- Figure1.B_PR + ggtitle("B") + theme(plot.title = element_text(hjust = 0, face = "bold", size = 14))
+
+# Combine the figures vertically
+Figure1 <- Figure1.A / Figure1.B_PR
+
+# Display the combined figure
+print(Figure1)
+
+```
+
+### Figure 2
+
+```{r - Figure 2 }
+
+
+
+Posteriors.GroupSalience.Scenarios <- posterior_samples(Model_GroupSalience)
+
+Posteriors.GroupSalience.Scenarios <- Posteriors.GroupSalience.Scenarios %>%
+  mutate(
+    # Scenarios PRE (baseline SampleType)
+    
+    # LEVEL 1 - Men 
+      Men.Pre.Level1 = 
+      b_Intercept +
+      b_SexM,
+      
+      
+      # LEVEL 1 - WOMEN 
+      Women.Pre.Level1 = 
+      b_Intercept, 
+      
+    # LEVEL 2      
+    Men.Pre.Level2 = 
+      b_Intercept +
+      b_SexM +
+      b_GameTypeBetweenCommunities +
+      `b_SexM:GameTypeBetweenCommunities`,
+   
+     # LEVEL 3         
+    Men.Pre.Level3 = 
+      b_Intercept +
+      b_SexM +
+      b_GameTypeTvNT +
+      `b_SexM:GameTypeTvNT`, 
+  
+  
+    
+    # Scenarios POST
+    # LEVEL 1 - MEN
+      Men.Post.Level1 = 
+      b_Intercept +
+      b_SexM +
+      b_SampleTypePostMFootball+
+      `b_SexM:SampleTypePostMFootball`,
+    
+    # LEVEL 1 - WOMEN
+      Women.Post.Level1 = 
+      b_Intercept +
+      b_SampleTypePostMFootball,
+    
+    # LEVEL 2  
+      Men.Post.Level2 = 
+      b_Intercept +
+      b_SexM +
+      b_SampleTypePostMFootball +
+      b_GameTypeBetweenCommunities +
+      `b_SexM:SampleTypePostMFootball` +
+      `b_SexM:GameTypeBetweenCommunities` +
+      `b_SampleTypePostMFootball:GameTypeBetweenCommunities` +
+      `b_SexM:SampleTypePostMFootball:GameTypeBetweenCommunities`,
+   
+     # LEVEL 3
+    Men.Post.Level3 = 
+      b_Intercept +
+      b_SexM +
+      b_SampleTypePostMFootball +
+      b_GameTypeTvNT +
+      `b_SexM:SampleTypePostMFootball` +
+      `b_SexM:GameTypeTvNT` +
+      `b_SampleTypePostMFootball:GameTypeTvNT` +
+      `b_SexM:SampleTypePostMFootball:GameTypeTvNT`,
+
+    
+    # EFFECTS 
+    # LEVEL 1 - MEN
+    Men.CompetitionEffect.Level1 = 
+    Men.Post.Level1 - Men.Pre.Level1, 
+    
+    # LEVEL 1 - WOMEN
+    Women.CompetitionEffect.Level1 = 
+    Women.Post.Level1 - Women.Pre.Level1,     
+    
+    # LEVEL 2
+    Men.CompetitionEffect.Level2 = 
+    Men.Post.Level2 - Men.Pre.Level2, 
+    # LEVEL 3
+    Men.CompetitionEffect.Level3 = 
+    Men.Post.Level3 - Men.Pre.Level3, 
+    
+  )
+
+Group_Posteriors <- Posteriors.GroupSalience.Scenarios %>%
+  summarise(
+    b_Men_Level2 = round(mean(Men.CompetitionEffect.Level2), 2),
+    PP_Men_Level2 = round(mean(Men.CompetitionEffect.Level2 > 0), 2),
+    
+    b_Men_Level3 = round(mean(Men.CompetitionEffect.Level3), 2),
+    PP_Men_Level3 = round(mean(Men.CompetitionEffect.Level3 > 0), 2),
+    
+    b_Men_Level1 = round(mean(Men.CompetitionEffect.Level1), 2),
+    PP_Men_Level1 = round(mean(Men.CompetitionEffect.Level1 > 0), 2),
+    
+    b_Women_Level1 = round(mean(Women.CompetitionEffect.Level1), 2),
+    PP_Women_Level1 = round(mean(Women.CompetitionEffect.Level1 > 0), 2)
+  )
+
+
+# Positive proportions
+Vars <- c(
+  "Men.CompetitionEffect.Level1", "Women.CompetitionEffect.Level1",
+  "Men.CompetitionEffect.Level2", "Men.CompetitionEffect.Level3"
+)
+# Define a function to calculate the proportion of posterior samples greater than 0
+Prop.Positive <- function(x) mean(x > 0)
+# Apply the function to each variable in Vars using the post-scenario dataset
+# This computes, for each effect, the probability that the effect is strictly positive
+Positive.Props <- sapply(Vars, function(v) Prop.Positive(Posteriors.GroupSalience.Scenarios[[v]]))
+# Round the results to 2 decimal places
+Positive.Props <- round(Positive.Props, 2)
+# Convert the named vector to a list for easier formatting and access later
+Positive.Props <- as.list(Positive.Props)
+
+# 4. Limit x axis
+xlims <- range(Posteriors.GroupSalience.Scenarios[, Vars])
+
+# 5. Function to generate density plots with PP shown in legend
+create_density_plot <- function(data, var_names, colors, labels, title, xlims, pp_vals) {
+
+  # Reshape data to long format
+  df <- data %>%
+    select(all_of(var_names)) %>%
+    pivot_longer(cols = everything(), names_to = "Group", values_to = "Effect") %>%
+    mutate(Group = factor(Group, levels = var_names))
+
+  # Extract density data from base plot
+  base_plot <- ggplot(df, aes(x = Effect, fill = Group)) + geom_density(size = 1)
+  dens_data <- ggplot_build(base_plot)$data[[1]]
+
+  # Assign group names and classify values as positive or negative
+  dens_data <- dens_data %>%
+    mutate(
+      Group = factor(rep(var_names, each = nrow(dens_data) / length(var_names))),
+      PosNeg = ifelse(x > 0, "Positive", "Negative")
+    )
+
+  # Create dynamic labels for the legend with PP values included
+  legend_labels <- sapply(seq_along(var_names), function(i) {
+    sprintf("%s Post-Competition ; P(> 0) = %.2f", labels[i], pp_vals[[var_names[i]]])
+  })
+
+  # Final plot
+  p <- ggplot() +
+    geom_line(data = dens_data, aes(x = x, y = y, group = Group), size = 0.5, color = "black") +
+    geom_ribbon(
+      data = filter(dens_data, PosNeg == "Negative"),
+      aes(x = x, ymin = 0, ymax = y, group = Group),
+      fill = "grey70", alpha = 0.6
+    ) +
+    geom_ribbon(
+      data = filter(dens_data, PosNeg == "Positive"),
+      aes(x = x, ymin = 0, ymax = y, fill = Group, group = Group),
+      alpha = 0.4
+    ) +
+    geom_vline(xintercept = 0, linetype = "dashed") +
+    xlim(xlims) +
+    labs(
+      title = title,
+      x = "Effect of Football Competition",
+      y = "Density",
+      fill = "Group"
+    ) +
+    scale_fill_manual(values = setNames(colors, var_names), labels = legend_labels) +
+    theme_minimal() +
+    theme(plot.title = element_text(face = "bold", hjust = 0.5))
+  
+  return(p)
+}
+
+# 6. Generate plots for each level
+P.Level1 <- create_density_plot(
+  Posteriors.GroupSalience.Scenarios,
+  var_names = c("Men.CompetitionEffect.Level1", "Women.CompetitionEffect.Level1"),
+  colors = c("#007649", "#593987"),
+  labels = c("Men", "Women"),
+  title = "Intra-Community",
+  xlims = xlims,
+  pp_vals = Positive.Props
+)
+
+P.Level2 <- create_density_plot(
+  Posteriors.GroupSalience.Scenarios,
+  var_names = c("Men.CompetitionEffect.Level2"),
+  colors = c("#007649"),
+  labels = c("Men"),
+  title = "Inter-Community",
+  xlims = xlims,
+  pp_vals = Positive.Props
+)
+
+P.Level3 <- create_density_plot(
+  Posteriors.GroupSalience.Scenarios,
+  var_names = c("Men.CompetitionEffect.Level3"),
+  colors = c("#007649"),
+  labels = c("Men"),
+  title = "Tsimane' VS Non-Tsimane'",
+  xlims = xlims,
+  pp_vals = Positive.Props
+)
+
+# 7. Combine plots
+Plot.Posteriors.GroupSalience <- P.Level1 / P.Level2 / P.Level3 +
+  plot_layout(ncol = 1) +
+  plot_annotation(
+    tag_levels = "A",
+    theme = theme(
+      plot.tag = element_text(face = "bold", size = 14),
+      plot.tag.position = c(0.02, 0.98)
+    )
+  )
+
+
+```
+
+### Figure 3
+
+```{r}
+
+
+# Getting posteriors 
+Posteriors.Model0.Football.PhysicalActivity <- posterior_samples(Model.Football.PhysicalActivity)
+
+# Creating a dataframe with sex effect
+EffectsDF <- tibble(
+  Sex = rep(c("Female", "Male"), each = nrow(Posteriors.Model0.Football.PhysicalActivity)),
+  Effect = c(
+    Posteriors.Model0.Football.PhysicalActivity$b_StepsPerMinute,
+    Posteriors.Model0.Football.PhysicalActivity$b_StepsPerMinute +
+      Posteriors.Model0.Football.PhysicalActivity$`b_StepsPerMinute:SexM`
+  )
+)
+
+# Define x-axis limits
+xlims <- range(EffectsDF$Effect)
+
+# Compute the proportion of values > 0 for each sex
+PP.Women.StepsPerMinute <- mean(EffectsDF$Effect[EffectsDF$Sex == "Female"] > 0) # Calculate the proportion of posterior samples for females where the effect is greater than 0
+PP.Men.StepsPerMinute <- mean(EffectsDF$Effect[EffectsDF$Sex == "Male"] > 0) # Calculate the proportion of posterior samples for males where the effect is greater than 0
+
+
+# Graph
+# Ensure the order of Sex levels (important for consistent group mapping)
+EffectsDF$Sex <- factor(EffectsDF$Sex, levels = c("Female", "Male"))
+
+# Create a temporary plot to extract density data
+base_plot <- ggplot(EffectsDF, aes(x = Effect, color = Sex, fill = Sex)) +
+  geom_density(size = 1)
+
+# Extract density data from the built ggplot object
+dens_data <- ggplot_build(base_plot)$data[[1]]
+
+# Manually associate group numbers with Sex and flag values above/below zero
+dens_data <- dens_data %>%
+  mutate(
+    Sex = ifelse(group == 1, "Female", "Male"),
+    PosNeg = ifelse(x > 0, "Positive", "Negative")
+  )
+
+# Compute the proportion of posterior samples > 0 for each sex
+PP.Women.StepsPerMinute <- mean(EffectsDF$Effect[EffectsDF$Sex == "Female"] > 0)
+PP.Men.StepsPerMinute <- mean(EffectsDF$Effect[EffectsDF$Sex == "Male"] > 0)
+
+# Final plot
+PhysicalActivity.PosteriorDistribution.Plot <- ggplot() +
+  geom_line(data = dens_data, aes(x = x, y = y, group = Sex), size = 1, color = "black") +
+
+  # Gray area under the curve for values ≤ 0
+  geom_ribbon(
+    data = filter(dens_data, PosNeg == "Negative"),
+    aes(x = x, ymin = 0, ymax = y, group = Sex),
+    fill = "grey70",
+    alpha = 0.6
+  ) +
+
+  # Colored area under the curve for values > 0
+  geom_ribbon(
+    data = filter(dens_data, PosNeg == "Positive"),
+    aes(x = x, ymin = 0, ymax = y, fill = Sex, group = Sex),
+    alpha = 0.4
+  ) +
+
+  geom_vline(xintercept = 0, linetype = "dashed") +
+  xlim(xlims) +
+  labs(
+    x = "Effect of Physical Activity (Steps per minute)",
+    y = "Density",
+    fill = "Sex"
+  ) +
+  scale_fill_manual(
+    values = c("Female" = "#593987", "Male" = "#007649"),
+    labels = c(
+      "Female" = paste0("Women (PP = ", round(PP.Women.StepsPerMinute, 2), ")"),
+      "Male" = paste0("Men (PP = ", round(PP.Men.StepsPerMinute, 2),")")
+    )
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_blank(),  # Remove title
+    plot.title.position = "panel",
+    legend.title = element_text(face = "bold"),
+    plot.margin = margin(10, 10, 10, 10)
+  )
+
+# Display the plot
+PhysicalActivity.PosteriorDistribution.Plot
+
+
+
+# Extract conditional effects from the fitted Bayesian model
+ConditionalEffectsOutput <- conditional_effects(Model.Football.PhysicalActivity, plot = FALSE)
+
+# Extract the specific conditional effect of StepsPerMinute by Sex
+EffectData <- ConditionalEffectsOutput[["StepsPerMinute:Sex"]]
+
+# Recode the Sex variable: F -> Women, M -> Men
+# Also reorder levels so that Women appears first (on top in the legend)
+EffectData$Sex <- factor(EffectData$Sex, levels = c("F", "M"), labels = c("Women", "Men"))
+
+# Generate the plot with custom colors and updated legend labels
+ConditionalEffect.PhysicalActivity <- ggplot(EffectData, aes(x = StepsPerMinute, y = estimate__, color = Sex, fill = Sex)) +
+  geom_line(size = 1) +  # Plot the conditional effect lines
+  geom_ribbon(aes(ymin = lower__, ymax = upper__), alpha = 0.3, color = NA) +  # Add 95% credible intervals
+
+  # Define custom colors for the lines and shaded ribbons
+  scale_fill_manual(values = c("Women" = "#593987", "Men" = "#007649")) +
+  scale_color_manual(values = c("Women" = "#593987", "Men" = "#007649")) +
+
+  # Set axis labels and legend titles
+  labs(
+    title = "",
+    x = "Physical Activity (Steps per minute)",
+    y = "% Change in Corrected Oxytocin Concentration",
+    color = "Sex",
+    fill = "Sex"
+  ) +
+
+  # Apply a clean minimal theme and customize text appearance
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    legend.title = element_text(face = "bold"),
+    legend.text = element_text(size = 8)
+  )
+
+
+# Display the plot
+ConditionalEffect.PhysicalActivity
+
+pA <- PhysicalActivity.PosteriorDistribution.Plot
+pB <- ConditionalEffect.PhysicalActivity
+
+plot_grid(pA, pB, labels = c("A", "B"), nrow = 1, align = "hv")
+
+```
+
+### Supplementary Figure 1
+
+```{r Supplementary Figure 1}
+
+
+# Posteriors extraction 
+Supplementary1_Posteriors <- Supplementary_Model1 %>%
+  spread_draws(
+    b_Intercept,
+    `b_SexM`, 
+    `b_StatusVisitors`, 
+    `b_GameTypeTvNT`, 
+    `b_GameTypeBetweenCommunities`,
+    `b_SexM:StatusVisitors`,
+    `b_SexM:GameTypeTvNT`,
+    `b_SexM:GameTypeBetweenCommunities`,
+    `b_StatusVisitors:GameTypeTvNT`,
+    `b_StatusVisitors:GameTypeBetweenCommunities`,
+    `b_SexM:StatusVisitors:GameTypeTvNT`,
+    `b_SexM:StatusVisitors:GameTypeBetweenCommunities`
+  )
+# 
+Supplementary1_PosteriorConditions <- Supplementary1_Posteriors %>%
+  mutate(
+    `Men Locals Intracommunity` = b_Intercept,
+    
+    `Men Locals TvNT` = b_Intercept + b_GameTypeTvNT + `b_SexM:GameTypeTvNT`,
+    
+    `Men Visitors TvNT` = b_Intercept + 
+      `b_SexM` + `b_StatusVisitors` + b_GameTypeTvNT +
+      `b_SexM:StatusVisitors` + `b_SexM:GameTypeTvNT` + 
+      `b_StatusVisitors:GameTypeTvNT` + `b_SexM:StatusVisitors:GameTypeTvNT`,
+    
+    `Men Visitors Between Community` = b_Intercept + 
+      `b_SexM` + `b_StatusVisitors` + b_GameTypeBetweenCommunities +
+      `b_SexM:StatusVisitors` + `b_SexM:GameTypeBetweenCommunities` + 
+      `b_StatusVisitors:GameTypeBetweenCommunities` + `b_SexM:StatusVisitors:GameTypeBetweenCommunities`
+  ) %>%
+  select(
+    `Men Locals Intracommunity`,
+    `Men Locals TvNT`,
+    `Men Visitors TvNT`,
+    `Men Visitors Between Community`
+  ) %>%
+  pivot_longer(everything(), names_to = "Condition", values_to = "Estimate")
+
+
+#########  FIGURE SUPPLEMENTARY MATERIALS  ######### 
+
+# Levels
+lvls <- c(
+  "Pre-Football (Men - Locals) Intra-Community",
+  "Pre-Football (Men - Locals) Tsimane' VS Non-Tsimane'",
+  "Pre-Football (Men - Visitors) Tsimane' VS Non-Tsimane'",
+  "Pre-Football (Men - Visitors) Inter-Community"
+)
+
+Supplementary_Figure1 <- Supplementary1_PosteriorConditions %>%
+  group_by(Condition) %>%
+  summarise(
+    Mean  = mean(Estimate),
+    Lower = quantile(Estimate, 0.025),
+    Upper = quantile(Estimate, 0.975),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    # Group
+    Group = ifelse(grepl("Visitors", Condition), "Visitors", "Locals"),
+    # Rename
+    Condition = recode(Condition,
+      "Men Locals Intracommunity" = "Pre-Football (Men - Locals) Intra-Community",
+            "Men Visitors Between Community" = "Pre-Football (Men - Visitors) Inter-Community",
+      "Men Locals TvNT" = "Pre-Football (Men - Locals) Tsimane' VS Non-Tsimane'",
+      "Men Visitors TvNT" = "Pre-Football (Men - Visitors) Tsimane' VS Non-Tsimane'"
+    ),
+    # Order conditions 
+    Condition = factor(Condition, levels = lvls)
+  ) %>%
+  ggplot(aes(x = Condition, y = Mean, color = Group)) +
+  geom_pointrange(aes(ymin = Lower, ymax = Upper), linewidth = 0.8) +
+  coord_flip() +
+  labs(
+    title = "Forest Plot of Posterior Effects",
+    x = "Condition",
+    y = "Estimated Effect (log-scale)",
+    color = "Group"
+  ) +
+  scale_color_manual(values = c("Locals" = "cadetblue", "Visitors" = "burlywood4")) +
+  theme_minimal(base_size = 13) +
+  theme(legend.position = "top")
+
+
+```
